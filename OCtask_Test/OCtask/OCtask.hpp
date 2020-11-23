@@ -41,12 +41,14 @@ public:
 	experiment_mgr* getSession();
 	unsigned long getMSGSTR();
 	
+public:
+	extern task_env* Environment;
 
 private:
 	xcs_config_mgr2* xcs_config2;
 	xcs_random* random;
 	binary_action* t_action;
-	task_env* Environment;
+	//task_env* Environment;
 	ternary_condition* t_condition;
 	xcs_classifier_system* XCS;
 	experiment_mgr* Session;

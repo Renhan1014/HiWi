@@ -40,89 +40,70 @@
 
 
 //-------------------------------------------------------------------------
-// Filename      : task_env.hpp
+// Filename      : woods_env.hh
 //
-// Purpose       : definition of the multiplexer class 
+// Purpose       : implement the woods environment used by Wilson (1995)
 //                 
 // Special Notes : 
 //                 
 //
 // Creator       : Pier Luca Lanzi
 //
-// Creation Date : 2002/05/14
+// Creation Date : 2002/06/26
+//
+// Modifications : 
+//                  2005/07/25	changed the interface to configuration
+//                  2004/10/05	changed t_sensors in t_state
+//                  2002/08/04	added flag_binary_sensors
 //
 // Current Owner : Pier Luca Lanzi
-//
-//-------------------------------------------------------------------------
-// Modification  : 
-//                 2005/07/25 modified the interface to configuration
-//                 2003/02/22
-//                 added the options for layered reward, deleted the flag for uniform start
-//		   2003/08/06
-//		   general.hpppp becomes xcs_definitions.hpppp
-//
 //-------------------------------------------------------------------------
 
 /*!
- * \file task_env.hpp
+ * \file woods_env.hh
  *
- * \brief implements the Boolean multiplexer
- *
- */
-
-/*!
- * \class task_env 
- *
- * \brief multiplexer class that implements the methods specific for the Boolean multiplexer 
- * \sa environment_base
- *
- * \author Pier Luca Lanzi
- *
- * \version 0.01
- *
- * \date 2002/05/14
+ * \brief implements the woods environment as defined by Wilson (1995)
  *
  */
 
 
-//#ifndef __MULTIPLEXERENV__
-//#define __MULTIPLEXERENV__
+#ifndef __WOODS_ENV__
+#define __WOODS_ENV__
 
-#include <cassert>
-//#include "rl_definitions.hpp"
-#include <OCtask.hpp>
+#include <sstream>
 
+#include "rl_definitions.hpp"
 #include "environment_base.hpp"
 #include "xcs_config_mgr2.hpp"
+#include "binary_inputs.hpp"
+#include "binary_action.hpp"
 
-using namespace std;
+/*!
+ * \class woods_env woods_env.h
+ * \brief implements the methods specific for woods environments
+ * \sa environment_base
+ */
 
-class task_env : public virtual environment_base
+class woods_env : public virtual environment_base
 {
- public:
-	string class_name() const { return string("task_env"); };
-	string tag_name() const { return string("environment::task"); };
-		
-	//! Constructor for the multiplexer class that read the class parameters through the configuration manager
-	/*!
-	 *  This is the first constructor that must be used. Otherwise an error is returned.
-	 */
-	task_env(xcs_config_mgr2&);
-
-	//! Default constructor for the Boolean multiplexer class
-	/*!
-	 *  If the class parameters have not yet initialized through the configuration manager, 
-	 *  an error is returned and the method exists to shell. 
-	 *  \sa task_env(xcs_config_mgr&)
-	 *  \sa xcs_config_mgr
-	 */
-	task_env();
+public:
+	string class_name() const { return string("woods_env"); };
+	string tag_name() const { return string("environment::woods"); };
 	
-	void begin_experiment() {};
-	void end_experiment() {};
+	//! Constructor for the woods environment class. It reads the class parameters through the configuration manager.
+	/*!
+	 *  This is the only constructor that can be used. 
+	 */
+	woods_env(xcs_config_mgr2&);
 
+	//! Destructor for the woods environment class.
+	~woods_env();
+	
 	void begin_problem(const bool explore);
 	void end_problem() {};
+
+	void begin_experiment() {};
+	void end_experiment() {};
 
 	bool stop() const;
 	
@@ -130,54 +111,99 @@ class task_env : public virtual environment_base
 
 	void trace(ostream& output) const;
 
+	bool allow_test() const {return true;};
+	void reset_problem();
+	bool next_problem();
+
 	void reset_input();
 	bool next_input();
 
-	void reset_problem() {reset_input();};
-	bool next_problem() {return next_input();};
-
 	void save_state(ostream& output) const;
 	void restore_state(istream& input);
-	
-	virtual double reward() const {assert(current_reward==task_env::current_reward); return current_reward;};
 
+	//! indicates that woods environments are multiple step problems
+	virtual bool single_step() const {return false;};
+
+ public:
+	virtual double reward() const {assert(current_reward==woods_env::current_reward); return current_reward;};
 	virtual binary_inputs state() const { return inputs; };
+	virtual void print(ostream& output) const { output << "(" << current_pos_x << "," << current_pos_y << ")\t" << state();};
 
-	bool allow_test() const {if (address_size<=3) return true; else return false;};
  private:
-	/*! \var bool init 
-	 *  \brief true if the class parameters have been already initialized
+	//! computes the current position on an axis given the grid limits
+	inline int	cicle(const int op, const int limit) const;
+
+	//! computes the sensory inputs that are returned in position <x,y>
+	void		get_input(const unsigned long x, const unsigned long y, binary_inputs& sensors) const;
+
+	//! given the current <x,y> position sets the current input and the current reward \sa current_position_x \sa current_position_y
+	inline void	set_state();
+
+	//! return true if the position <x,y> is free (i.e., it contains ".")
+	inline bool	is_free(const unsigned long x, const unsigned long y) const;
+
+	//! return true if the position <x,y> contains food (i.e., "F")
+	inline bool	is_food(const unsigned long x, const unsigned long y) const;
+
+	//! return true if the position <x,y> contains food (i.e., "F")
+	inline void binary_encode(const string&, string&) const;
+	
+	static bool			init;			//!< true if the class has been inited through the configuration manager
+	binary_inputs			inputs;			//!< current input configuration
+
+        //! true if the start position in the environment are set so to visit all the positions the same number of time
+	bool		uniform_start;
+	
+        //! current reward returned for the last action performed
+	double		current_reward;
+	//unsigned long	no_configurations;			// #configurazioni possibili
+
+	//! \var current_configuration index of the current agent's input
+	/*!
+	 * it is used when scanning all the possible environment configurations with 
+	 * the functions \fn reset_input and \fn next_input
+	 * \sa reset_input
+	 * \sa next_input
 	 */
-	static bool			init;
+	////unsigned long	current_configuration;			// counter for uniform problem start
 
-	/*! 
-	 * \var t_state inputs
-	 * \brief inputs current input configuration
-	 */
-	binary_inputs			inputs;			// input configuration
 
-	/*! 
-	 * \var bool first_problem 
-	 * \brief true if the first problem is running
-	 */
-	bool				first_problem;
+	//! \var current_state current agent's input
+	//unsigned long	current_state;				// counter for the scan of states
 
-	/*! \var unsigned long address_size
-	 * \brief number of address bits for the Boolean multiplexer
-	 */
-	unsigned long			address_size;
+	//! \var configurations stores all the possible input configurations
+	vector<string>	configurations;				// configurations
 
-	//! true if it the reward is layered (Butz et al. GECCO 2001)
-	bool				flag_layered_reward;		
+        //! current x position in the environment
+	unsigned long 	current_pos_x;
+        //! current y position in the environment
+	unsigned long 	current_pos_y;
 
-	//! size of the whole multiplexer string, e.g., 6 for the 6-way multiplexer
-	unsigned long			state_size;
+ 	//! \var flag_binary_sensors specifies whether binary inputs (i.e., 00100...) or symbolic inputs (i.e., "TF......T.") should be returned
+	bool		flag_binary_sensors;
 
-	//! the reward returned as a consequence of the last performed action
-	double				current_reward;
+        //! \var prob_slide specifies the probability that the agent can slip while it moves (Colombetti and Lanzi 1999)
+	double		prob_slide; 
 
-	//! true if the problem was solved correctly
-	bool				solved;
+        //! \var env_rows number of rows
+	unsigned long		env_rows;
 
+        //! \var env_columns number of columns
+	unsigned long		env_columns;
+
+        //! \var map environment map 
+	vector<string>		map;
+
+        //! \var env_free_pos number of free positions (i.e., ".") in the environment
+	unsigned long 		env_free_pos;
+
+        //! x coordinates of the free positions in the environment
+	vector<unsigned long>	free_pos_x;
+	
+        //! y coordinates of the free positions in the environment
+	vector<unsigned long>	free_pos_y;
+
+	//! path traces the path the agent followed during the problem
+	string			path;
 };
 #endif

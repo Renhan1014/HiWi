@@ -3,7 +3,7 @@
 
 OCtask::OCtask() {
 	this->flag_verbose = true;
-	this->MSGSTR = = 256;
+	this->MSGSTR = 256;
 }
 
 OCtask::~OCtask() {
@@ -34,10 +34,12 @@ void OCtask::performTask(string str_suffix){
 
 	//! init the XCS classifier system
 	this->setXCS();
+	this->XCS->getOCtask(this);
 
 
 	//! init the experiment manager
 	this->setSession();
+	this->Session->getOCtask(this);
 
 
 	//! the experiment session begins
@@ -86,6 +88,7 @@ OCtask::setCondition() {
 }
 OCtask::setXCS() {
 	this->XCS = new xcs_classifier_system(*(this->xcs_config2));
+
 		if (flag_verbose)
 			cout << "Classifier System      \t\tok." << endl;
 

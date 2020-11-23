@@ -40,228 +40,409 @@
 
 
 //-------------------------------------------------------------------------
-// Filename      : multiplexer_env.cpp
+// Filename      : woods_env.cc
 //
-// Purpose       : implementation of the multiplexer class 
+// Purpose       : implement the woods environment used by Wilson (1995)
 //                 
 // Special Notes : 
 //                 
+//
 // Creator       : Pier Luca Lanzi
 //
-// Creation Date : 2002/05/31
+// Creation Date : 2002/05/13
 //
 // Current Owner : Pier Luca Lanzi
-//
 //-------------------------------------------------------------------------
 
 /*!
- * \file multiplexer_env.cpp
+ * \file woods_env.cc
  *
- * \brief implements the Boolean multiplexer
+ * \brief implementation of woods environments as defined by Wilson (1995)
  *
- * \author Pier Luca Lanzi
+ * The environment is defined through a map contaning obstacles (T), free positions (.), and goal positions (F).
+ * The top left position of the map corresponds to position (0,0).
  *
- * \version 0.01
+ * At the beginning of a problem the agent is place at a random position; 
+ * the problem ends when the agent reaches a goal position.
  *
- * \date 2002/05/14
+ * The configuration file specifies two main information: 
+ * - the name of the file that contains the enviroment map and 
+ * - the agent sliding probability 
  *
  */
-
-#include <cmath>
-#include "xcs_utility.hpp"
-#include "xcs_random.hpp"
-#include <OCtask.hpp>
-
 #include "task_env.hpp"
 
-using namespace std;
+//! \def __WOODS_ENV_CFG_IN__ specifies the format of the configuration file for the woods environment
+#define	__WOODS_ENV_CFG_IN__ "\
+		map = %s \
+		binary sensors = %s \
+		slide probability = %lf "
 
-bool	task_env::init=false;	//!< set the init flag to false so that the use of the config manager becomes mandatory
-//#define __DEBUG__
-task_env::task_env(xcs_config_mgr2& xcs_config)
+//! \def __WOODS_ENV_VARS_IN__ specifies the parameters that are read from the configuration file 
+/*!
+ * \sa map_file
+ * \sa use_binary_sensors
+ * \sa uniform_start
+ * \sa prob_slide
+ */
+
+#define __WOODS_ENV_VARS_IN__ map_file, &str_use_binary_sensors, &prob_slide
+
+//! specifies the format string to print the current configuration parameters
+#define	__WOODS_ENV_CFG_OUT__ " \n\
+		Map = %s \n\
+		BinarySensors = %s \n\
+		SlideProbability = %lf "
+
+//! specifies the variables read from the configuration file that are printed on screen for logging purposes
+#define __WOODS_ENV_VARS_OUT__ map_file, str_use_binary_sensors, prob_slide
+
+
+bool	woods_env::init = false;
+
+woods_env::woods_env(xcs_config_mgr2& xcs_config)
 {
-	//! string used to read layered payoff settings; forced off in this version
-	string		str_layered_reward;
-	
-	if (!task_env::init)
+	if (!woods_env::init)
 	{
-		task_env::init = true;
+		string		map_file;
+		string		str_use_binary_sensors;
 
 		if (!xcs_config.exist(tag_name()))
 		{
 			xcs_utility::error(class_name(), "constructor", "section <" + tag_name() + "> not found", 1);	
 		}
-		
+	
 		try {
-			//address_size = xcs_config.Value(tag_name(), "address size");
-			//str_layered_reward = (string) xcs_config.Value(tag_name(), "layered reward", "off");
+			map_file = (string) xcs_config.Value(tag_name(), "map");
+			str_use_binary_sensors = (string) xcs_config.Value(tag_name(), "binary sensors");
+			prob_slide = xcs_config.Value(tag_name(), "slide probability");
 		} catch (const char *attribute) {
 			string msg = "attribute \'" + string(attribute) + "\' not found in <" + tag_name() + ">";
 			xcs_utility::error(class_name(), "constructor", msg, 1);
 		}
 
-		//TODO(Renhan): environment must be implemented.
-		//unsigned long BitStringSize = 1;
-		//BitStringSize <<= address_size;
-		//state_size = address_size + BitStringSize;
-		//no_configurations = 1;
-		//no_configurations <<= state_size;
+		/// set the flag
+		
+		xcs_utility::set_flag(string(str_use_binary_sensors), flag_binary_sensors);
 
-		//state_size = address_size + long(pow(double(2),int(address_size)));
+		///	read the woods map
+		ifstream MAP(map_file.c_str());
 
-		//xcs_utility::set_flag(string(str_layered_reward), flag_layered_reward);
+		if (!MAP.good())
+		{
+			// error: map not found
+			xcs_utility::error(class_name(),"class constructor", "map file not found", 1);
+		}
 
-		//assert(!flag_layered_reward);
-/*#ifdef __DEBUG__
-		clog << "ADDRESS SIZE    " << address_size << endl;
-		clog << "CONFIGURATIONS  " << no_configurations << endl;
-		clog << "INPUT SIZE      " << state_size << endl;
+		env_rows = 0;
+		env_columns = 0;
+		env_free_pos = 0;
 
-		if (flag_layered_reward)
-			clog << "LAYERED REWARD  ON";
-		else 
-			clog << "LAYERED REWARD  OFF";
+		bool		first_row=true;
+		string		row;
+	
+		map.clear();
+		while (MAP >> row)
+		{
+			if (first_row)	
+			{
+				env_columns = row.size();
+				first_row=false;
+			}
+			else if (row.size()!=env_columns)
+			{
+				xcs_utility::error(class_name(),"class constructor", "unrecognized map format", 1);
+			}	
+			map.push_back(row);
+	
+			string::iterator	pos;
+	
+			for(pos=row.begin(); pos!=row.end(); pos++)
+			{
+				if (*pos=='.')
+				{
+					env_free_pos++;
+				}
+			}
+		}
+		MAP.close();
+	
+		env_rows = map.size();
+
+#ifdef __DEBUG
+		clog << "ok." << endl;
+		clog << "map is " << env_columns << "x" << env_rows << endl;
+
+		clog << "file " << map_file << endl;
+		clog << endl;
+		
+		for(unsigned long row=0; row<map.size(); row++)
+		{
+			clog << map[row] << endl;
+		}
+		clog << endl;
 #endif
-*/
-	}
 
-	task_env::init = true;
+		///
+		free_pos_x.clear();
+		free_pos_y.clear();
+	
+		binary_inputs		free_position;
+		configurations.clear();
+
+		for (unsigned long y=0; y<env_rows; y++)
+		{
+			for (unsigned long x=0; x<env_columns; x++)
+			{
+				if (is_free(x,y))
+				{
+					get_input(x,y,free_position);
+					configurations.push_back(free_position.string_value());
+
+					free_pos_x.push_back(x);
+					free_pos_y.push_back(y);
+				}
+			}
+		}
+	
+	
+		current_pos_x = 0;
+		current_pos_y = 0;
+	
+		current_configuration = 0;
+	
+		set_state();
+
+	}
+	woods_env::init = true;
+}
+woods_env::~woods_env()
+{
+	map.clear();
 }
 
-/*!
- * \fn void multiplexer_env::begin_problem(const bool explore)
- * \param explore true if the problem is solved in exploration
- *
- * \brief generates a new input configuration for the Boolean multiplexer
- */
 void	
-task_env::begin_problem(const bool explore)
+woods_env::begin_problem(const bool explore)
 {
-	current_reward = 0;
+	ostringstream	PATH;
+   	unsigned long	where;
 
-	string	str;
+	//! at the beginning of the problem the previous information about the agent's path is cleared
+	path = "";
 
-	string::size_type	bit;
+	//! random restart
+	where = (unsigned long) (env_free_pos*xcs_random::random());
+		
+	current_pos_x = free_pos_x[where];
+	current_pos_y = free_pos_y[where];
+	set_state();
 
-	str = "";
-
-	for(bit = 0; bit<state_size; bit++)
-	{
-		str += '0' + xcs_random::dice(2);
-	}
-
-	inputs.set_string_value(str);
-	current_reward = 0;
-	first_problem = false;
+	PATH << "(" << current_pos_x << "," << current_pos_y << ")";
+	path += PATH.str();
 }
 
 bool	
-task_env::stop()
+woods_env::stop()
 const
 {
-	return(true); 
+	return(is_food(current_pos_x,current_pos_y)); 
 }
 
 
 void	
-task_env::perform(const binary_action& action)
+woods_env::perform(const binary_action& action)
 {
-	unsigned long		address;
-	unsigned long		index;		//! index of the output bit
-	string			str_inputs;
+	static int 	sliding[] = {-1,1};
+	static int	inc_x[] = { 0, +1, +1, +1,  0, -1, -1, -1};
+	static int	inc_y[] = {-1, -1,  0, +1, +1, +1,  0, -1};
 
-	str_inputs = inputs.string_value();
+	unsigned long	act;
+	unsigned long	next_x;
+	unsigned long	next_y;
 
-	index = xcs_utility::binary2long(str_inputs.substr(0,address_size));
-	address = address_size + index;
+	act = action.value();
 
-	if (!flag_layered_reward)
+	if (xcs_random::random()<prob_slide)
 	{
-		if ((str_inputs[address]-'0')==action.value())
-		{
-			current_reward = 1000;
-			solved = true;
-		} else {
-			current_reward = 0;
-			solved = false;
-		}
-	} else {
-		if ((str_inputs[address]-'0')==action.value())
-		{
-			current_reward = 300 + index*200 + double(100*(unsigned long)(str_inputs[address]-'0'));
-			solved = true;
-		} else {
-			current_reward = index*200 + double(100*(unsigned long)(str_inputs[address]-'0'));
-			solved = false;
-		}
+		act = cicle(act + sliding[xcs_random::dice(2)], action.actions());
 	}
-#ifdef __DEBUG__
-	cout << "INPUT " << inputs << " BIT " << str_inputs[address] << " ACTION " << action.value() << " REWARD " << current_reward << endl;
-#endif
-}
-/*
-      reward= 300.+(double)(((place-NRBITS)*200)+100*(int)(state[place]-'0'));
-      reward= 0.+(double)(((place-NRBITS)*200)+100*(int)(state[place]-'0'));
- *
- */
 
-//! only the current reward is traced
+	next_x=cicle(current_pos_x+inc_x[act], env_columns);
+	next_y=cicle(current_pos_y+inc_y[act], env_rows);
+
+	if ((is_free(next_x,next_y)) || (is_food(next_x,next_y)))
+	{
+		current_pos_x = next_x;
+		current_pos_y = next_y;
+		set_state();
+	}
+	ostringstream PATH;
+	PATH << "(" << current_pos_x << "," << current_pos_y << ")";
+	path += PATH.str();
+}
+
 void
-task_env::trace(ostream& output) const
+woods_env::trace(ostream& output) const
 {
-	if (solved)
-		output << 1;
-	else
-		output << 0;
+	output << path;
 }
 
 void 
-task_env::reset_input()
+woods_env::reset_input()
 {
-	current_state = 0;
-	inputs.set_string_value(xcs_utility::long2binary(current_state,state_size));
+	reset_problem();
 }
 
 bool 
-task_env::next_input()
+woods_env::next_input()
 {
-	string	binary;
-	bool	valid = false;
-
-	current_state++; 
-	if (current_state<no_configurations)
-	{
-		inputs.set_string_value(xcs_utility::long2binary(current_state,state_size));
-		valid = true;
-	} else {
-		current_state = 0;
-		inputs.set_string_value(xcs_utility::long2binary(current_state,state_size));
-		valid = false;
-	}
-	return valid;
+	return next_problem();
 }
 
 void
-task_env::save_state(ostream& output) const
+woods_env::save_state(ostream& output) const
 {
 	output << endl;
-	output << current_state << endl;
+	output << current_pos_x << '\t' << current_pos_y << '\t';
+	output << current_configuration << endl;
 }
 
 void
-task_env::restore_state(istream& input)
+woods_env::restore_state(istream& input)
 {
-	input >> current_state; 
-	begin_problem(true);
+	input >> current_pos_x; 
+	input >> current_pos_y;
+	input >> current_configuration;
+	set_state();
 }
 
-task_env::task_env()
+inline 
+int	
+woods_env::cicle(const int op, const int limit) 
+const
 {
-	if (!multiplexer_env::init)
+	return ((op % limit)>=0)?(op % limit):((op % limit) + limit);
+}
+
+inline
+void	
+woods_env::get_input(const unsigned long x,const unsigned long y, binary_inputs& inputs)
+const
+{
+	static int	inc_x[] = { 0, +1, +1, +1,  0, -1, -1, -1};
+	static int	inc_y[] = {-1, -1,  0, +1, +1, +1,  0, -1};
+	unsigned long	sx,sy;
+	unsigned long	pos;
+
+	string		symbolic_input = "";
+	string		binary_input = "";
+
+	for(pos=0; pos<8; pos++)
 	{
-		xcs_utility::error(class_name(),"class constructor", "not inited", 1);
+		sx = cicle(x+inc_x[pos], env_columns);
+		sy = cicle(y+inc_y[pos], env_rows);
+		symbolic_input += map[sy][sx];
+	}
+
+	if (!flag_binary_sensors)
+	{
+		inputs.set_string_value(symbolic_input);
 	} else {
-		// nothing to init
+		string	binary_input;
+		binary_encode(symbolic_input, binary_input);
+		inputs.set_string_value(binary_input);
 	}
 }
 
+inline
+void	
+woods_env::set_state()
+{
+	get_input(current_pos_x,current_pos_y,inputs);
+
+	if (is_food(current_pos_x,current_pos_y))
+	{
+		current_reward = 1000;
+	} else {
+		current_reward = 0;
+	}
+}
+
+inline
+bool 
+woods_env::is_free(const unsigned long x, const unsigned long y)
+const
+{
+	return(map[y][x]=='.');
+}
+
+inline
+bool 
+woods_env::is_food(const unsigned long x, const unsigned long y)
+const
+{
+	return (map[y][x]=='F');
+}
+
+void
+woods_env::binary_encode(const string &input, string &binary)
+const
+{
+	string::const_iterator	pos;
+
+	binary = "";
+	pos=input.begin();
+
+	for(pos=input.begin(); pos!=input.end(); pos++)
+	{
+		switch (*pos)
+		{
+			case 'T': // tree
+				binary += "10";
+				break;
+			case 'F': // food
+				binary += "11";
+				break;
+			case '.': // free 
+				binary += "00";
+				break;
+			default:
+				xcs_utility::error(class_name(),"class constructor", "unrecognized map symbol", 1);
+		}
+	}
+}
+
+void
+woods_env::reset_problem()
+{
+	path = "";
+
+	current_configuration = 0;
+	current_pos_x = free_pos_x[current_configuration];
+	current_pos_y = free_pos_y[current_configuration];
+	set_state();
+	
+	ostringstream PATH;
+	PATH << "(" << current_pos_x << "," << current_pos_y << ")";
+	path = PATH.str();
+}
+
+
+bool
+woods_env::next_problem()
+{
+	current_configuration++;
+	if (current_configuration==env_free_pos)
+	{
+		reset_problem();
+		return false;
+	}
+
+	current_pos_x = free_pos_x[current_configuration];
+	current_pos_y = free_pos_y[current_configuration];
+	set_state();
+	ostringstream PATH;
+	PATH << "(" << current_pos_x << "," << current_pos_y << ")";
+	path = PATH.str();
+	return true;
+}
