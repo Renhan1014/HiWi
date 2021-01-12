@@ -220,7 +220,7 @@ const
 
 
 void	
-woods2_env::perform(const t_action& action)
+woods2_env::perform(const integer_action& action)
 {
 	static int 	sliding[] = {-1,1};
 	static int	inc_x[] = { 0, +1, +1, +1,  0, -1, -1, -1};
@@ -296,7 +296,7 @@ const
 
 inline
 void	
-woods2_env::get_input(const unsigned long x,const unsigned long y, t_state& inputs)
+woods2_env::get_input(const unsigned long x,const unsigned long y, real_inputs& inputs)
 const
 {
 	static int	inc_x[] = { 0, +1, +1, +1,  0, -1, -1, -1};

@@ -66,7 +66,11 @@
 #define __WOODS2_ENV__
 
 #include <sstream>
-#include "rl_definitions.hpp"
+//#include "rl_definitions.hpp"
+#include "integer_action.hpp"
+#include "real_inputs.hpp"
+#include "real_interval_condition.hpp"
+
 #include "environment_base.hpp"
 #include "xcs_config_mgr2.hpp"
 
@@ -99,7 +103,7 @@ public:
 
 	bool stop() const;
 	
-	void perform(const t_action& action);
+	void perform(const integer_action& action);
 
 	void trace(ostream& output) const;
 
@@ -118,7 +122,7 @@ public:
 
  public:
 	virtual double reward() const {assert(current_reward==woods2_env::current_reward); return current_reward;};
-	virtual t_state state() const { return inputs; };
+	virtual real_inputs state() const { return inputs; };
 	virtual void print(ostream& output) const { output << "(" << current_pos_x << "," << current_pos_y << ")\t" << state();};
 
  private:
@@ -126,7 +130,7 @@ public:
 	inline int	cicle(const int op, const int limit) const;
 
 	//! computes the sensory inputs that are returned in position <x,y>
-	void		get_input(const unsigned long x, const unsigned long y, t_state& sensors) const;
+	void		get_input(const unsigned long x, const unsigned long y, real_inputs& sensors) const;
 
 	//! given the current <x,y> position sets the current input and the current reward \sa current_position_x \sa current_position_y
 	inline void	set_state();
@@ -141,7 +145,7 @@ public:
 	inline void binary_encode(const string&, string&) const;
 	
 	static bool			init;			//!< true if the class has been inited through the configuration manager
-	t_state			inputs;			//!< current input configuration
+	real_inputs			inputs;			//!< current input configuration
 
         //! true if the start position in the environment are set so to visit all the positions the same number of time
 	bool		uniform_start;

@@ -76,7 +76,7 @@
 
 #include <string>
 #include <sstream>
-#include "rl_definitions.hpp"
+//#include "rl_definitions.hpp"
 #include "xcs_config_mgr2.hpp"
 #include "real_inputs.hpp"
 #include "interval.hpp"

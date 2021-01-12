@@ -99,13 +99,13 @@ public:
 	virtual void end_problem() = 0;
 
 	//! performs action act in the environment 
-	virtual void perform(const t_action& act) = 0;
+	virtual void perform(const integer_action& act) = 0;
 
 	//! returns the current reward 
 	virtual double reward() const = 0;
 
 	//! returns the current state of the environment 
-	virtual t_state state() const = 0;
+	virtual real_inputs state() const = 0;
 
 	//! print the current state of the environment to an output stream. 
 	/*!

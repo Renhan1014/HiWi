@@ -250,6 +250,7 @@ xcs_classifier_system::xcs_classifier_system(xcs_config_mgr2& xcs_config)
 	create_prediction_array();
 	
 	//! check subsumption settings
+	//should be passed in?
 	t_condition	cond;
 
 	if (flag_as_subsumption && !cond.allow_as_subsumption())
@@ -402,7 +403,7 @@ xcs_classifier_system::print_options(ostream& output) const
 void
 xcs_classifier_system::init_classifier_set()
 {
-	t_classifier classifier;
+	xcs_classifier classifier;
 	switch (population_init)
 	{
 		//! [P] = {}
@@ -426,9 +427,9 @@ xcs_classifier_system::init_classifier_set()
 };
 				
 				
-bool	compare_cl(t_classifier *clp1, t_classifier *clp2) {return *clp1<*clp2;};
+bool	compare_cl(xcs_classifier *clp1, xcs_classifier *clp2) {return *clp1<*clp2;};
 void
-xcs_classifier_system::insert_classifier(t_classifier& new_cl)
+xcs_classifier_system::insert_classifier(xcs_classifier& new_cl)
 {
 	///CHECK
 	assert(new_cl.actionset_size>=0);
@@ -438,7 +439,7 @@ xcs_classifier_system::insert_classifier(t_classifier& new_cl)
 	///END CHECK
 
 	/// keep a sorted index of classifiers
-	t_classifier *clp = new t_classifier;
+	xcs_classifier *clp = new t_classifier;
 	*clp = new_cl;
 
 	clp->time_stamp = total_steps;
@@ -468,7 +469,7 @@ xcs_classifier_system::insert_classifier(t_classifier& new_cl)
 
 //! build [M]
 unsigned long	
-xcs_classifier_system::match(const t_state& detectors)
+xcs_classifier_system::match(const real_inputs& detectors)
 {
 	t_set_iterator			pp;		/// iterator for visiting [P]
 	unsigned long			sz = 0;		/// number of micro classifiers in [M]
@@ -491,7 +492,7 @@ xcs_classifier_system::match(const t_state& detectors)
 
 //! perform covering on [M], only if needed
 bool
-xcs_classifier_system::perform_covering(t_classifier_set &match_set, const t_state& detectors)
+xcs_classifier_system::perform_covering(t_classifier_set &match_set, const real_inputs& detectors)
 {
 	switch (covering_strategy)
 	{
@@ -512,11 +513,11 @@ xcs_classifier_system::perform_covering(t_classifier_set &match_set, const t_sta
 
 //! perform covering based on the number of actions in [M]
 bool
-xcs_classifier_system::perform_standard_covering(t_classifier_set &match_set, const t_state& detectors)
+xcs_classifier_system::perform_standard_covering(t_classifier_set &match_set, const real_inputs& detectors)
 {
 	if ((match_set.size()==0) || need_standard_covering(match_set, detectors))
 	{
-		t_classifier	classifier;
+		xcs_classifier	classifier;
 
 		//! create a covering classifier
 		classifier.cover(detectors);
@@ -538,7 +539,7 @@ xcs_classifier_system::perform_standard_covering(t_classifier_set &match_set, co
 }
 
 bool
-xcs_classifier_system::need_standard_covering(t_classifier_set &match_set, const t_state& detectors)
+xcs_classifier_system::need_standard_covering(t_classifier_set &match_set, const real_inputs& detectors)
 {
 	//unsigned long	i;
 	t_set_iterator	pp;					//! iterator for visiting [P]
@@ -622,7 +623,7 @@ xcs_classifier_system::build_prediction_array()
 	}
 };
 
-void	xcs_classifier_system::select_action(const t_action_selection policy, t_action& act)
+void	xcs_classifier_system::select_action(const t_action_selection policy, integer_action& act)
 {
 	static unsigned long		stat_rnd = 0;
 	vector<unsigned long>::iterator	best;
@@ -786,7 +787,7 @@ xcs_classifier_system::update_fitness(t_classifier_set &action_set)
 }
 
 bool
-xcs_classifier_system::subsume(const t_classifier &first, const t_classifier &second)
+xcs_classifier_system::subsume(const xcs_classifier &first, const xcs_classifier &second)
 {
 	bool	result;
 	
@@ -829,13 +830,13 @@ xcs_classifier_system::need_ga(t_classifier_set &action_set, const bool flag_exp
 }
 
 void
-xcs_classifier_system::genetic_algorithm(t_classifier_set &action_set, const t_state& detectors, const bool flag_condensation)
+xcs_classifier_system::genetic_algorithm(t_classifier_set &action_set, const real_inputs& detectors, const bool flag_condensation)
 {
 	t_set_iterator 	parent1;
 	t_set_iterator	parent2;
 
-	t_classifier	offspring1;
-	t_classifier	offspring2;
+	xcs_classifier	offspring1;
+	xcs_classifier	offspring2;
 
 
 	t_set_iterator	as;
@@ -891,7 +892,7 @@ xcs_classifier_system::genetic_algorithm(t_classifier_set &action_set, const t_s
 		offspring1.fitness = offspring1.fitness * 0.1;
 		offspring2.fitness = offspring2.fitness * 0.1;
 
-		t_condition	cond;
+		t_condition	cond;//?
 	
 		if (cond.allow_ga_subsumption() && flag_ga_subsumption)
 		{
@@ -979,7 +980,7 @@ xcs_classifier_system::genetic_algorithm(t_classifier_set &action_set, const t_s
 void	
 xcs_classifier_system::step(const bool exploration_mode, const bool condensationMode)
 {
-	t_action	action;					//! selected action
+	integer_action	action;					//! selected action
 	unsigned long	match_set_size;		//! number of microclassifiers in [M]
 	//unsigned long	action_set_size;	//! number of microclassifiers in [A]
 	double		P;						//! value for prediction update, computed as r + gamma * max P(.) 
@@ -1129,7 +1130,7 @@ xcs_classifier_system::save_state(ostream& output)
 {
 	output << stats << endl;
 	output << total_steps << endl;
-	t_classifier::save_state(output);
+	xcs_classifier::save_state(output);
 	output << macro_size << endl;
 
 	t_set_iterator	pp;
@@ -1160,12 +1161,12 @@ xcs_classifier_system::restore_state(istream& input)
 	unsigned long size;
 	input >> stats;
 	input >> total_steps;
-	t_classifier::restore_state(input);
+	xcs_classifier::restore_state(input);
 	input >> size;
 	
 	population.clear();
 	
-    	t_classifier in_classifier;
+    	xcs_classifier in_classifier;
 	population_size = 0;
 	macro_size = 0;
 
@@ -1173,7 +1174,7 @@ xcs_classifier_system::restore_state(istream& input)
 	{
 		if (!input.eof() && (input >> in_classifier))
 		{
-			t_classifier	*classifier = new t_classifier(in_classifier);
+			xcs_classifier	*classifier = new t_classifier(in_classifier);
 			population.push_back(classifier);
 			population_size += classifier->numerosity;
 			macro_size++;
@@ -1236,10 +1237,10 @@ xcs_classifier_system::end_problem()
 
 
 bool	
-xcs_classifier_system::perform_nma_covering(t_classifier_set &match_set, const t_state& detectors)
+xcs_classifier_system::perform_nma_covering(t_classifier_set &match_set, const real_inputs& detectors)
 {
 	vector<t_system_prediction>::iterator	pr;
-	t_action		act;
+	t_action		act;//?
 	unsigned long		total_actions = act.actions();
 	unsigned long		covered_actions = total_actions;
 	bool			covered_some_actions = false;		//! becomes true when covering classifiers are created
@@ -1274,7 +1275,7 @@ xcs_classifier_system::perform_nma_covering(t_classifier_set &match_set, const t
 			//! 
 			if (pr->n==0)
 			{
-				t_classifier	classifier;
+				t_classifier	classifier;//?
 				
 				classifier.cover(detectors);
 				classifier.action = pr->action;
@@ -1295,7 +1296,7 @@ xcs_classifier_system::perform_nma_covering(t_classifier_set &match_set, const t
 };
 
 void	
-xcs_classifier_system::init_classifier(t_classifier& classifier, bool average)
+xcs_classifier_system::init_classifier(xcs_classifier& classifier, bool average)
 {
 	if (!average || (population_size==0))
 	{
@@ -1344,7 +1345,7 @@ xcs_classifier_system::init_classifier(t_classifier& classifier, bool average)
  * \param action selected action
  */
 void	
-xcs_classifier_system::build_action_set(const t_action& action)
+xcs_classifier_system::build_action_set(const integer_action& action)
 {
 	//! iterator in [M]
 	t_set_iterator 	mp;
@@ -1397,7 +1398,7 @@ void
 xcs_classifier_system::print_set(t_classifier_set &set, ostream& output) 
 {
 	t_set_const_iterator	pp;
-	t_classifier	cl;
+	xcs_classifier	cl;
 
 	output << "================================================================================" << endl;
 	for(pp=set.begin(); pp!=set.end(); pp++)
@@ -1536,7 +1537,7 @@ xcs_classifier_system::set_covering_strategy(const string strategy, double thres
 		covering_strategy = COVERING_STANDARD;
 		fraction_for_covering = threshold;
 	} else if (strategy=="action_based") {
-		t_action	action;
+		t_action	action;//?
 
 		covering_strategy = COVERING_ACTION_BASED;
 
@@ -1558,7 +1559,7 @@ xcs_classifier_system::set_covering_strategy(const string strategy, double thres
 void	
 xcs_classifier_system::create_prediction_array()
 {
-	t_action		action;
+	t_action		action;//?
 	t_system_prediction	prediction;
 
 	//! clear the prediction array

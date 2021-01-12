@@ -44,7 +44,7 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
-#include "xcs_definitions.hpp"
+//#include "xcs_definitions.hpp"
 #include "xcs_random.hpp"
 #include "xcs_config_mgr2.hpp"
 #include "real_interval_condition.hpp"

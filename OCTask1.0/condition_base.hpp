@@ -80,7 +80,7 @@
 #define __XCS_CONDITION__
 
 #include <string>
-#include "xcs_definitions.hpp"
+//#include "xcs_definitions.hpp"
 
 
 template <class condition, class sensors>
