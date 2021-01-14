@@ -66,12 +66,7 @@
  */
 
 #include <list>
-//#include "xcs_definitions.hpp"
-#include "real_inputs.hpp"
-#include "integer_action.hpp"
-#include "real_interval_condition.hpp"
-#include "xcs_classifier.hpp"
-
+#include "xcs_definitions.hpp"
 #include "xcs_random.hpp"
 #include "xcs_config_mgr2.hpp"
 
@@ -127,7 +122,7 @@ typedef enum {
 class t_system_prediction {
  public:
         double		payoff;		//! action payoff
-        integer_action	action;		//! action
+        t_action	action;		//! action
         double		sum;		//! fitness sum to normalize action payoff
 	unsigned long 	n;		//! number of classifiers that advocate the action
 
@@ -143,7 +138,7 @@ class t_system_prediction {
 		return (action == p2.action);
 	}
 
-	int operator==(const integer_action& act) const
+	int operator==(const t_action& act) const
 	{	// due predizioni sono 'uguali' se si riferiscono alla stessa azione
 		return (action == act);
 	}
@@ -259,22 +254,22 @@ class xcs_classifier_system
 	//================================================================================
 	
 	//! pointer to a classifier
-	typedef xcs_classifier*				t_classifier_ptr;
+	typedef t_classifier*				t_classifier_ptr;
 
 	//! set of classifiers
 	/*! 
 	 * \type t_classifier_set
 	 * \brief represent a set of classifiers
 	 */
-	typedef vector<xcs_classifier*>			t_classifier_set;
+	typedef vector<t_classifier*>			t_classifier_set;
 
 	//! index in set of classifiers
 	/*! 
 	 * \type t_set_iterator
 	 * \brief represent an iterator over a set of classifiers
 	 */
-	typedef vector<xcs_classifier*>::iterator	t_set_iterator;
-	typedef vector<xcs_classifier*>::const_iterator	t_set_const_iterator;
+	typedef vector<t_classifier*>::iterator	t_set_iterator;
+	typedef vector<t_classifier*>::const_iterator	t_set_const_iterator;
 
 private:
 	//================================================================================
@@ -406,7 +401,7 @@ private:
 	bool	need_ga(t_classifier_set &action_set, const bool flag_explore);
 	void	select_offspring(t_classifier_set&, t_set_iterator&, t_set_iterator&);
 	//void	genetic_algorithm(t_classifier_set &action_set, const t_state& detectors, const bool flag_condensation);
-	void	genetic_algorithm(t_classifier_set &action_set, const real_inputs& detectors, const bool flag_condensation=false );
+	void	genetic_algorithm(t_classifier_set &action_set, const t_state& detectors, const bool flag_condensation=false );
 	//@}
 
  private:
@@ -422,8 +417,8 @@ private:
 	vector<double>					select;				//! vector for roulette wheel selection
 	vector<double>					error;
 
-	real_inputs					previous_input;			//! input at t-1
-	real_inputs					current_input;			//! current input at time t
+	t_state					previous_input;			//! input at t-1
+	t_state					current_input;			//! current input at time t
 	vector<t_system_prediction>			prediction_array;		//! prediction array P(.) 
 	vector<unsigned long>				available_actions;		//! actions in the prediction array that have a not null prediction, and thus are available for selection
 
@@ -445,25 +440,25 @@ private:
 	void    init_classifier_set();				//! init [P] according to the selected strategy (i.e., empty or random)
 
 	void	erase_population();				//! erase [P]
-	void	insert_classifier(xcs_classifier& cs);		//! insert a classifier in [P]
+	void	insert_classifier(t_classifier& cs);		//! insert a classifier in [P]
 	void	delete_classifier();				//! delete a classifier from [P]
 
 	//! init the classifier parameters
-	void	init_classifier(xcs_classifier& classifier, bool average=false);	
+	void	init_classifier(t_classifier& classifier, bool average=false);	
 	//void	init_classifier(t_classifier& classifier, bool average);	
 	//@}
 
 	//! methods for covering
 	//@{
-	bool	need_covering_standard(t_classifier_set, const real_inputs&);	//! true if covering is needed according to Wilson 1995
+	bool	need_covering_standard(t_classifier_set, const t_state&);	//! true if covering is needed according to Wilson 1995
 
-	void	covering(const real_inputs& detectors);				//! covering
-	bool	perform_covering(t_classifier_set&, const real_inputs&);		//! perform covering in [M]
+	void	covering(const t_state& detectors);				//! covering
+	bool	perform_covering(t_classifier_set&, const t_state&);		//! perform covering in [M]
 
-	bool	perform_standard_covering(t_classifier_set&, const real_inputs&); //! perform covering according to Wilson 1995
-	bool	need_standard_covering(t_classifier_set&, const real_inputs&);	//! true if standard covering is needed
+	bool	perform_standard_covering(t_classifier_set&, const t_state&); //! perform covering according to Wilson 1995
+	bool	need_standard_covering(t_classifier_set&, const t_state&);	//! true if standard covering is needed
 
-	bool	perform_nma_covering(t_classifier_set&, const real_inputs&);	//! perform covering according to Butz and Wilson 2001
+	bool	perform_nma_covering(t_classifier_set&, const t_state&);	//! perform covering according to Butz and Wilson 2001
 
 	//@}
 	
@@ -474,10 +469,10 @@ private:
 	void	print_prediction_array(ostream&) const;
 
 	//! select an action
-	void	select_action(const t_action_selection, integer_action&);
+	void	select_action(const t_action_selection, t_action&);
 	
 	//!	build [A] based on the selected action a
-	void	build_action_set(const integer_action&);
+	void	build_action_set(const t_action&);
 
 	//! methods for distributing the reinforcement among classifiers
 	//@{
@@ -486,7 +481,7 @@ private:
 	//@}
 
 	//! true if classifier \emph first subsume classifier \emph second
-	bool 	subsume(const xcs_classifier& first, const xcs_classifier& second);
+	bool 	subsume(const t_classifier& first, const t_classifier& second);
 
 
  public:
@@ -517,7 +512,7 @@ private:
 	void	step(const bool exploration_mode,const bool condensationMode);
 
 	//!  build the match set [M]; it returns the number of microclassifiers that match the sensory configuration
-	unsigned long	match(const real_inputs& detectors);
+	unsigned long	match(const t_state& detectors);
 
  private:
 	//! true if the problem is solved in exploration (Wilson 1995), i.e., XCS is in learning (Butz 2001)
@@ -541,11 +536,11 @@ private:
 	/*! 
 	 * TRAIN/TEST FUNCTIONS
 	 */
-	void train(real_inputs&, integer_action&, double) {};
-	void test(real_inputs&, integer_action&, double) {};
+	void train(t_state&, t_action&, double) {};
+	void test(t_state&, t_action&, double) {};
 
  private:
-	bool	classifier_could_subsume(const xcs_classifier &classifier, double epsilon_zero, double theta_sub) const
+	bool	classifier_could_subsume(const t_classifier &classifier, double epsilon_zero, double theta_sub) const
 		{ return ((classifier.experience>theta_sub) && (classifier.error<epsilon_zero)); };
 
  private:
@@ -564,7 +559,7 @@ private:
 	void	check(string,ostream&);
 	//@}
 	
-	bool comp_num(const xcs_classifier& cl1, const xcs_classifier& cl2) const {return (cl1.numerosity>cl2.numerosity);};
+	bool comp_num(const t_classifier& cl1, const t_classifier& cl2) const {return (cl1.numerosity>cl2.numerosity);};
 
 	class comp_numerosity {
   	  public:

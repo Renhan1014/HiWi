@@ -85,26 +85,26 @@
 
 // maps the actual class used for classifier conditions, specified with the __CONDITION__ variable in 
 // the make file to the high level name t_condition
-class   __CONDITION__;
-typedef __CONDITION__ t_condition;
+class   real_interval_condition;
+typedef real_interval_condition t_condition;
 
-#include __COND_INCLUDE__
+#include "real_interval_condition.hpp"
 
 
 
 //! maps the actual class used for the environment, specified with the __ENVIRONMENT__ variable in 
 //! the make file to the high level name t_environment
-#include __CLS_INCLUDE__
+#include "xcs_classifier.hpp"
 
-class   __CLASSIFIER__;
-typedef __CLASSIFIER__ t_classifier;
+class   xcs_classifier;
+typedef xcs_classifier t_classifier;
 
 
 
 //! maps the actual class used for the the classifier system, specified with the __MODEL__ variable in 
 //! the make file to the high level name t_environment
-#include __MOD_INCLUDE__
-class   __MODEL__;
-typedef __MODEL__ t_classifier_system;
+#include "xcs_classifier_system.hpp"
+class   xcs_classifier_system;
+typedef xcs_classifier_system t_classifier_system;
 
 #endif

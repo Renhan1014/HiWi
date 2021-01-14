@@ -211,7 +211,7 @@ const
 }
 
 bool	
-xcs_classifier::match(const real_inputs& detectors)
+xcs_classifier::match(const t_state& detectors)
 {
 	return (condition.match(detectors));
 }
@@ -225,7 +225,7 @@ xcs_classifier::random()
 }
 
 void	
-xcs_classifier::cover(const real_inputs& detectors)
+xcs_classifier::cover(const t_state& detectors)
 {
 	condition.cover(detectors);
 	action.random();
@@ -233,7 +233,7 @@ xcs_classifier::cover(const real_inputs& detectors)
 }
 
 void
-xcs_classifier::mutate(const float mutationProb, const real_inputs& detectors)
+xcs_classifier::mutate(const float mutationProb, const t_state& detectors) 
 {
 	condition.mutate(detectors,mutationProb);
 	action.mutate(mutationProb);

@@ -82,7 +82,7 @@
 #define __INTEGER_ACTION__
 
 #include "action_base.hpp"
-//#include "rl_definitions.hpp"
+#include "rl_definitions.hpp"
 // #include "xcs_utility.h"
 #include "xcs_config_mgr2.hpp"
 

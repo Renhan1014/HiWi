@@ -70,10 +70,7 @@
  */
 
 //! include definitions for sensors, conditions, actions, environment
-//#include "xcs_definitions.hpp"
-#include "real_inputs.hpp"
-#include "integer_action.hpp"
-#include "real_interval_condition.hpp"
+#include "xcs_definitions.hpp"
 
 //! general type definitions for XCS
 #ifndef __XCS_CLASSIFIER__
@@ -180,12 +177,12 @@ class xcs_classifier
 	void	random();			
 
 	//!
-	void		cover(const real_inputs& input);
+	void		cover(const t_state& input);
 	//!
-	bool	match(const real_inputs& detectors);
+	bool	match(const t_state& detectors);
 
 	//! mutate the classifier according to the mutation probability "mu"
-	void	mutate(const float mutationProb, const real_inputs&);
+	void	mutate(const float mutationProb, const t_state&); 
 
 	//! apply crossover between this classifier and another one
 	void	recombine(xcs_classifier& classifier);
@@ -213,8 +210,8 @@ class xcs_classifier
  public:
 	unsigned long		identifier;		//!< classifier identifier; it is unique for each classifier
 
-	real_interval_condition		condition;		//!< classifier condition
-	integer_action		action;			//!< classifier action
+	t_condition		condition;		//!< classifier condition
+	t_action		action;			//!< classifier action
 
 	double			prediction;		// //!< prediction 
 	double			error;			// //!< prediction error
