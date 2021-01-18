@@ -524,6 +524,7 @@ xcs_classifier_system::perform_standard_covering(t_classifier_set &match_set, co
 		//! init classifier parameters
 		init_classifier(classifier);
 
+		//should modified to insert classifier safely
 
 		//! insert the new classifier in [P]
 		insert_classifier(classifier);
@@ -999,7 +1000,7 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 	 * if it does, it apply the selected covering strategy, i.e., standard as defined in Wilson 1995,
 	 * or action_based as defined in Butz and Wilson 2001
 	 */
-
+	//should transfer to generation?
 	do {
 		match_set_size = match(current_input);
 	}
@@ -1093,6 +1094,7 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 	}
 
 	//! apply the genetic algorithm to [A] if needed
+	//transfer to generation
 	if (flag_discovery_component && need_ga(action_set, exploration_mode))
 	{
 		genetic_algorithm(action_set, previous_input, condensationMode);
