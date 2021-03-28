@@ -1,10 +1,78 @@
+/*
+ * The XCS Library
+ * A C++ framework to apply and develop learning classifier systems
+ * Copyright (C) 2002-2009 Pier Luca Lanzi
+ *
+ * Pier Luca Lanzi
+ * Dipartimento di Elettronica e Informazione
+ * Politecnico di Milano
+ * Piazza Leonardo da Vinci 32
+ * I-20133 MILANO - ITALY
+ * pierluca.lanzi@polimi.it/lanzi@elet.polimi.it
+ *
+ * This file is part of the XCSLIB library.
+ *
+ * xcslib is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * xcslib is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * A copy of the license is available at http://www.gnu.org/licenses/gpl.html
+ *
+ * If you use this code, please cite the following technical report:
+ *
+ * P.L. Lanzi and D. Loiacono (2009), "XCSLib: The XCS Classifier System Library",
+ * Technical Report No. 2009005, Illinois Genetic Algorithms Laboratory
+ * University of Illinois at Urbana-Champaign, 117 Transportation Building
+ * 104 S. Mathews Avenue Urbana, IL 61801
+ *
+ * Available at http://www.illigal.uiuc.edu/pub/papers/IlliGALs/2009005.pdf
+ *
+ * For updates please visit: http://xcslib.sf.net
+ *                           http://www.pierlucalanzi.net
+ */
+
+
+
+ //-------------------------------------------------------------------------
+ // Filename      : experiment_mgr.cc
+ //
+ // Purpose       : implementation of the experiment manager class 
+ //                 
+ // Special Notes : 
+ //                 
+ //
+ // Creator       : Pier Luca Lanzi
+ //
+ // Creation Date : 2002/05/18
+ //
+ // Current Owner : Pier Luca Lanzi
+ //-------------------------------------------------------------------------
+ // Updates
+ //		   2005 07 21 modified the setting of the configuration
+ //		   2004 07 27 added the limitation of max problem steps
+ //-------------------------------------------------------------------------
+
+
 #include "xcs_utility.hpp"
-#include "experiment_mgr.hpp"
+#include "controller.hpp"
 #include "xcs_definitions.hpp"
 extern t_classifier_system* XCS;
 
+/*!
+ * \file experiment_mgr.cc
+ *
+ * \brief implements the methods for the experiment manager
+ *
+ */
 
-controller::controller(xcs_config_mgr2& xcs_config) {
+controller::experiment_mgr(xcs_config_mgr2& xcs_config)
+{
 	string str_test_environment;		//! string to read the setting for the test environment (on/off)
 	string str_save_trace;			//! string to read the setting for trace (on/off)
 	string str_save_agent_state;		//! string to read the setting for saving the agent state (on/off)
@@ -76,7 +144,6 @@ controller::controller(xcs_config_mgr2& xcs_config) {
 	current_problem = -1;		//! to check whether the method reset_problems is called
 }
 
-
 void
 controller::perform_experiments()
 {
@@ -108,7 +175,6 @@ controller::perform_experiments()
 		bool flag_condensation = false;
 
 		//! init XCS for the current experiment
-		//Here set the p[] empty
 		XCS->begin_experiment();
 
 		//! the first problem is always solved in exploration
@@ -116,7 +182,6 @@ controller::perform_experiments()
 
 
 		//! init the file for statistics
-		// should I need this code?
 		char	file_statisticsName[MSGSTR];
 		if (!flag_compact_mode)
 			sprintf(file_statisticsName, "statistics.%s-%ld", extension.c_str(), current_experiment);
@@ -246,9 +311,6 @@ controller::perform_experiments()
 			}
 
 			//! init the environment for the current problem
-			//? now set input to environment?
-			//set para 
-			//in function begin_problem para will be set./para will be processed.
 			Environment->begin_problem(flag_exploration);
 
 			reward_sum = 0;
@@ -293,9 +355,6 @@ controller::perform_experiments()
 
 			//! the environment ends the current problem
 			Environment->end_problem();
-			
-			//get the output from the environment
-			//printf for test/save in a file
 
 			//! computes the average to be saved when in compact mode
 			//! (current_no_test_problems==0) || ((current_no_test_problems%save_stats_every)==0)))
@@ -554,8 +613,6 @@ controller::perform_experiments()
 	}
 };
 
-
-
 void
 controller::print_save_options(ostream& output)
 const
@@ -695,21 +752,13 @@ controller::restore_state(const unsigned long expNo)
 }
 
 void
-controller::setInput(vector<double> inputV) {
-	controller::input = inputV;
+controller::setInput(vector<double>& in)
+{
+	input = in;
 }
 
-void 
-controller::setOutput(vector<double> outputV) {
-	controller::output = outputV;
-}
-
-vector<double> 
-controller::getInput() {
-	return controller::input;
-}
-
-vector<double> 
-controller::getOutput() {
-	return controller::output;
+void
+controller::setOutput(vector<double>& out)
+{
+	output = out;
 }

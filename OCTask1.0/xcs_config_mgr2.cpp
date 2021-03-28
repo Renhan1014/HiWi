@@ -51,6 +51,8 @@ xcs_config_mgr2::xcs_config_mgr2(std::string const& extension)
 
 	//! open the configuration file
 	string configFile = "confsys." + extension;
+
+	//? where is the file?
 	std::ifstream file(configFile.c_str());
 
 	if (!file.good())

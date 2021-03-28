@@ -83,7 +83,7 @@
 
 #include "action_base.hpp"
 #include "rl_definitions.hpp"
-// #include "xcs_utility.h"
+#include "xcs_utility.h"
 #include "xcs_config_mgr2.hpp"
 
 class integer_action : public virtual action_base<integer_action>

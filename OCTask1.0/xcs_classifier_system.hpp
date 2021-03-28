@@ -69,6 +69,7 @@
 #include "xcs_definitions.hpp"
 #include "xcs_random.hpp"
 #include "xcs_config_mgr2.hpp"
+#include "rule_generator.hpp"
 
 using namespace std;
 
@@ -483,6 +484,11 @@ private:
 	//! true if classifier \emph first subsume classifier \emph second
 	bool 	subsume(const t_classifier& first, const t_classifier& second);
 
+public:
+	void	init_classifier_1(t_classifier& classifier, bool average = false);
+	void   pop_size_inc() { population_size++; };
+	void	insert_classifier_1(t_classifier& cs);		//! insert a classifier in [P]
+	void	delete_classifier_1();				//! delete a classifier from [P] 
 
  public:
 	//@{
@@ -621,5 +627,11 @@ private:
 
 	//! returns the average gradient in a set
 	double	average_gradient(const t_classifier_set &set) const;
+
+private:
+	bool perform_covering_GA(t_classifier_set&, const t_state&);
+	bool	perform_standard_covering_GA(t_classifier_set&, const t_state&); //! perform covering according to Wilson 1995
+	bool    need_standard_covering_GA(t_classifier_set&, const t_state&);
+	bool	perform_nma_covering_GA(t_classifier_set&, const t_state&);	//! perform covering according to Butz and Wilson 2001
 };
 #endif

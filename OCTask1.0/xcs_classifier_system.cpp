@@ -1,4 +1,4 @@
-/*
+﻿/*
  * The XCS Library 
  * A C++ framework to apply and develop learning classifier systems
  * Copyright (C) 2002-2009 Pier Luca Lanzi
@@ -466,6 +466,47 @@ xcs_classifier_system::insert_classifier(t_classifier& new_cl)
 	population_size++;
 }
 
+
+void
+xcs_classifier_system::insert_classifier_1(t_classifier& new_cl)
+{
+	///CHECK
+	assert(new_cl.actionset_size >= 0);
+	assert(new_cl.numerosity == 1);
+
+	//new_cl.condition.check_limits();
+	///END CHECK
+
+	/// keep a sorted index of classifiers
+	t_classifier* clp = new t_classifier;
+	*clp = new_cl;
+
+	clp->time_stamp = total_steps;
+	clp->experience = 0;
+
+	t_set_iterator	pp;
+
+	pp = lower_bound(population.begin(), population.end(), clp, compare_cl);
+	if ((pp != population.end()))
+	{
+		if ((**pp) != (*clp))
+		{
+			clp->generate_id();
+			population.insert(pp, clp);
+			macro_size++;
+		}
+		else {
+			(**pp).numerosity++;
+			delete clp;
+		}
+	}
+	else {
+		population.insert(pp, clp);
+		macro_size++;
+	}
+	population_size++;
+}
+
 //! build [M]
 unsigned long	
 xcs_classifier_system::match(const t_state& detectors)
@@ -524,7 +565,6 @@ xcs_classifier_system::perform_standard_covering(t_classifier_set &match_set, co
 		//! init classifier parameters
 		init_classifier(classifier);
 
-		//should modified to insert classifier safely
 
 		//! insert the new classifier in [P]
 		insert_classifier(classifier);
@@ -1000,11 +1040,12 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 	 * if it does, it apply the selected covering strategy, i.e., standard as defined in Wilson 1995,
 	 * or action_based as defined in Butz and Wilson 2001
 	 */
-	//should transfer to generation?
+
+	//If there is a new input that is not covered, the genetic algorithm is executed 
 	do {
 		match_set_size = match(current_input);
 	}
-   	while (perform_covering(match_set, current_input));
+   	while (perform_covering_GA(match_set, current_input));
 
 	//! build the prediction array P(.)
 	build_prediction_array();
@@ -1093,14 +1134,17 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 		}
 	}
 
+	/*
+
 	//! apply the genetic algorithm to [A] if needed
-	//transfer to generation
 	if (flag_discovery_component && need_ga(action_set, exploration_mode))
 	{
 		genetic_algorithm(action_set, previous_input, condensationMode);
 		stats.no_ga++;
 	}
-	
+	*/
+
+
 	//!	[A]-1 <= [A]
 	//!	r-1 <= r
 	previous_action_set = action_set;
@@ -1341,6 +1385,51 @@ xcs_classifier_system::init_classifier(t_classifier& classifier, bool average)
 	};
 }
 
+void
+xcs_classifier_system::init_classifier_1(t_classifier& classifier, bool average)
+{
+	if (!average || (population_size == 0))
+	{
+		classifier.prediction = init_prediction;
+		classifier.error = init_error;
+		classifier.fitness = init_fitness;
+
+		classifier.actionset_size = init_set_size;
+		classifier.experience = 0;
+		classifier.time_stamp = total_steps;
+
+		classifier.numerosity = 1;
+	}
+	else {
+		t_set_iterator	cl;
+
+		double		toterror = 0;
+		double		totprediction = 0;
+		double		totfitness = 0;
+		double		totactionset_size = 0;
+		unsigned long	popSize = 0;
+		unsigned long	pop_sz = 0;
+
+		for (cl = population.begin(); cl != population.end(); cl++)
+		{
+			toterror += (**cl).error * (**cl).numerosity;
+			totprediction += (**cl).prediction * (**cl).numerosity;
+			totfitness += (**cl).fitness;
+			totactionset_size += (**cl).actionset_size * (**cl).numerosity;
+			popSize += (**cl).numerosity;
+			pop_sz++;
+		}
+
+		classifier.prediction = totprediction / popSize;
+		classifier.error = .25 * toterror / popSize;
+		classifier.fitness = 0.1 * totfitness / pop_sz;
+		classifier.actionset_size = totactionset_size / popSize;
+		classifier.numerosity = 1;
+		classifier.time_stamp = total_steps;
+		assert(classifier.actionset_size >= 0);
+		assert(classifier.fitness >= 0);
+	};
+}
 //! build [A] from [M] and an action "act"
 /*!
  * \param action selected action
@@ -2011,6 +2100,69 @@ xcs_classifier_system::delete_classifier()
 	}
 }
 
+void
+xcs_classifier_system::delete_classifier_1()
+{
+	t_set_iterator 	pp;
+
+	double		average_fitness = 0.;
+	double		vote_sum;
+	double		vote;
+	double		random;
+
+	unsigned long	sel;
+
+	if (population_size <= max_population_size)
+		return;
+
+	switch (delete_strategy)
+	{
+	case XCS_DELETE_RWS_SETBASED:
+	case XCS_DELETE_RWS_FITNESS:
+		pp = select_delete_rw(population);
+		break;
+	case XCS_DELETE_RANDOM:				//! random delete
+	case XCS_DELETE_RANDOM_WITH_ACCURACY:		//! random delete
+		pp = select_delete_random(population);
+		break;
+	default:
+		xcs_utility::error(class_name(), "delete_classifier", "delete strategy not allowed", 1);
+	}
+
+	if ((**pp).numerosity > 1)
+	{
+		(**pp).numerosity--;
+		population_size--;
+	}
+	else {
+		//	remove cl from [M], [A], and [A]-1
+		t_set_iterator	clp;
+		clp = find(action_set.begin(), action_set.end(), *pp);
+		if (clp != action_set.end())
+		{
+			action_set.erase(clp);
+		}
+
+		clp = find(match_set.begin(), match_set.end(), *pp);
+		if (clp != match_set.end())
+		{
+			match_set.erase(clp);
+		}
+
+		clp = find(previous_action_set.begin(), previous_action_set.end(), *pp);
+		if (clp != previous_action_set.end())
+		{
+			previous_action_set.erase(clp);
+		}
+
+		delete* pp;
+
+		population.erase(pp);
+		population_size--;
+		macro_size--;
+	}
+}
+
 double	
 xcs_classifier_system::specificity(const t_classifier_set &set) const
 {
@@ -2077,3 +2229,160 @@ xcs_classifier_system::ga_a_subsume(t_classifier_set &action_set, const t_classi
 		}
 	}
 }
+
+
+bool 
+xcs_classifier_system::perform_covering_GA(t_classifier_set& match_set, const t_state& detectors) {
+	switch (covering_strategy)
+	{
+		//! perform covering according to Wilson 1995
+	case COVERING_STANDARD:
+		return perform_standard_GA(match_set, detectors);
+		break;
+
+		//! covering strategy as in Butz and Wilson 2001
+	case COVERING_ACTION_BASED:
+		return perform_nma_GA(match_set, detectors);
+		break;
+	default:
+		xcs_utility::error(class_name(), "perform_covering", "covering strategy not allowed", 1);
+		exit(-1);
+	}
+}
+
+
+bool
+xcs_classifier_system::perform_standard_covering_GA(t_classifier_set& match_set, const t_state& detectors)
+{
+	if ((match_set.size() == 0) || need_standard_covering_GA(match_set, detectors))
+	{
+		rule_generator rg;
+		rg.do_cover_GA(detectors);
+		
+		t_classifier *classifier;
+
+		classifier = rg.get_classifier();
+
+		//! create a covering classifier
+		//classifier.cover(detectors);
+
+		//! init classifier parameters
+		init_classifier(*classifier);
+
+
+		//! insert the new classifier in [P]
+		insert_classifier(*classifier);
+
+		//! delete another classifier from [P] if necessary
+		delete_classifier();
+
+		//! signal that a covering operation took place
+		return true;
+	}
+	return false;
+}
+
+
+
+
+bool
+xcs_classifier_system::need_standard_covering_GA(t_classifier_set& match_set, const t_state& detectors)
+{
+	//unsigned long	i;
+	t_set_iterator	pp;					//! iterator for visiting [P]
+	//unsigned long	sz = 0;					//! number of micro classifiers in [M]
+	double		average_prediction;			//!	average prediction in [P]
+	double		total_match_set_prediction;		//!	total prediction in [M]
+
+	if (match_set.size() == 0)
+		return true;
+
+	average_prediction = 0;
+	total_match_set_prediction = 0.;
+
+	for (pp = population.begin(); pp != population.end(); pp++)
+	{
+		average_prediction += (*pp)->prediction * (*pp)->numerosity;
+		//cout << (*pp)->prediction << "*" << (*pp)->numerosity << "\t";
+	}
+	//cout << endl << endl;
+
+	average_prediction = average_prediction / population_size;
+
+	for (pp = match_set.begin(); pp != match_set.end(); pp++)
+	{
+		total_match_set_prediction += (*pp)->prediction * (*pp)->numerosity;
+	}
+
+	//cerr << "==> " << total_match_set_prediction << "<=" << fraction_for_covering << " x " << average_prediction << endl;;
+
+	return (total_match_set_prediction <= fraction_for_covering * average_prediction);
+}
+
+bool
+xcs_classifier_system::perform_nma_covering_GA(t_classifier_set& match_set, const t_state& detectors)
+{
+	vector<t_system_prediction>::iterator	pr;
+	t_action		act;
+	unsigned long		total_actions = act.actions();
+	unsigned long		covered_actions = total_actions;
+	bool			covered_some_actions = false;		//! becomes true when covering classifiers are created
+
+	//! clear the prediction array
+	init_prediction_array();
+
+	//! build P(.)
+	build_prediction_array();
+
+	/*for(pr=prediction_array.begin(); pr!=prediction_array.end(); pr++ )
+	{
+		//!
+		if (pr->n==0)
+		{
+			covered_actions--;
+		}
+	}
+	*/
+
+	//! the number of actions that are covered is computed as the number of available actions
+	//! in the prediction array P(.)
+
+	covered_actions = available_actions.size();
+
+	covered_some_actions = false;
+
+	if (covered_actions < tetha_nma)
+	{
+		for (pr = prediction_array.begin(); pr != prediction_array.end() && (covered_actions < tetha_nma); pr++)
+		{
+			//! 
+			if (pr->n == 0)
+			{
+				rule_generator rg;
+				rg.do_cover_GA(detectors);
+
+				t_classifier* classifier;
+
+				classifier = rg.get_classifier();
+
+				//t_classifier	classifier;
+
+				//classifier.cover(detectors);
+				//classifier.action = pr->action;
+
+				classifier->action = pr->action;
+
+				init_classifier(classifier, flag_cover_average_init);
+
+				insert_classifier(classifier);
+
+				delete_classifier();
+
+				covered_actions++;
+			}
+		}
+		covered_some_actions = true;
+	}
+
+	return covered_some_actions;
+};
