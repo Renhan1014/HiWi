@@ -404,7 +404,23 @@ private:
 	//void	genetic_algorithm(t_classifier_set &action_set, const t_state& detectors, const bool flag_condensation);
 	void	genetic_algorithm(t_classifier_set &action_set, const t_state& detectors, const bool flag_condensation=false );
 	//@}
-
+public:
+	void	genetic_algorithm1(t_classifier_set& action_set, const t_state& detectors, const bool flag_condensation = false);
+	void    get_total_steps(unsigned long *total_step);
+	void	get_flag_ga_tournament_selection(bool ga_tournament_selection);
+	void	select_offspring1(t_classifier_set&, t_set_iterator&, t_set_iterator&);
+	void	select_offspring_ts1(t_classifier_set&, t_set_iterator&);
+	void	get_prob_crossover(double *prob_cross);
+	void    get_flag_ga_average_init(bool ga_average_init);
+	void	init_classifier1(t_classifier& classifier, bool average = false);
+	void    get_flag_ga_subsumption(bool ga_subsumption);
+	bool 	subsume1(const t_classifier& first, const t_classifier& second);
+	void    get_population_size(unsigned long *size);
+	void    set_population_size(unsigned long* size);
+	void	get_flag_gaa_subsumption(bool gaa_subsumption);
+	void	insert_classifier1(t_classifier& cs);
+	void	delete_classifier1();
+	void    get_prob_mutation(double* prob_muta);
  private:
 
 	//! variables for [P], [M], [A], and [A]-1
@@ -484,11 +500,6 @@ private:
 	//! true if classifier \emph first subsume classifier \emph second
 	bool 	subsume(const t_classifier& first, const t_classifier& second);
 
-public:
-	void	init_classifier_1(t_classifier& classifier, bool average = false);
-	void   pop_size_inc() { population_size++; };
-	void	insert_classifier_1(t_classifier& cs);		//! insert a classifier in [P]
-	void	delete_classifier_1();				//! delete a classifier from [P] 
 
  public:
 	//@{
@@ -628,10 +639,7 @@ public:
 	//! returns the average gradient in a set
 	double	average_gradient(const t_classifier_set &set) const;
 
-private:
-	bool perform_covering_GA(t_classifier_set&, const t_state&);
-	bool	perform_standard_covering_GA(t_classifier_set&, const t_state&); //! perform covering according to Wilson 1995
-	bool    need_standard_covering_GA(t_classifier_set&, const t_state&);
-	bool	perform_nma_covering_GA(t_classifier_set&, const t_state&);	//! perform covering according to Butz and Wilson 2001
+public:
+	xcs_classifier_system* getXCS_sys();
 };
 #endif

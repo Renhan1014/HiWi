@@ -83,23 +83,36 @@ const unsigned long MSGSTR = 256;
 
 //! maps the actual class used for detectors, specified with the __DETECTORS__ variable in 
 //! the make file to the high level name t_sensors
+//class   __INPUTS__;
+//typedef __INPUTS__ t_state;
+
 class   real_inputs;
 typedef real_inputs t_state;
 
 //! maps the actual class used for classifier actions, specified with the __ACTION__ variable in 
 //! the make file to the high level name t_action
-class  integer_action;
+//class   __ACTION__;
+//typedef __ACTION__ t_action;
+
+class   integer_action;
 typedef integer_action t_action;
 
 //! maps the actual class used for the environment, specified with the __ENVIRONMENT__ variable in 
 //! the make file to the high level name t_environment
-//should be modified
-class   woods2_env;
-typedef woods2_env t_environment;
+//class   __ENVIRONMENT__;
+//typedef __ENVIRONMENT__ t_environment;
+
+class   add_env;
+typedef add_env t_environment;
+
+//#include __DET_INCLUDE__
+//#include __ENV_INCLUDE__
+//#include __ACT_INCLUDE__
 
 #include "real_inputs.hpp"
-#include "woods2_env.hpp"
+#include "weight_env.hpp"
 #include "integer_action.hpp"
 	
 extern t_environment*	Environment;
+
 #endif

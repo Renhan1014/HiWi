@@ -1,4 +1,4 @@
-﻿/*
+/*
  * The XCS Library 
  * A C++ framework to apply and develop learning classifier systems
  * Copyright (C) 2002-2009 Pier Luca Lanzi
@@ -466,9 +466,8 @@ xcs_classifier_system::insert_classifier(t_classifier& new_cl)
 	population_size++;
 }
 
-
 void
-xcs_classifier_system::insert_classifier_1(t_classifier& new_cl)
+xcs_classifier_system::insert_classifier1(t_classifier& new_cl)
 {
 	///CHECK
 	assert(new_cl.actionset_size >= 0);
@@ -840,6 +839,19 @@ xcs_classifier_system::subsume(const t_classifier &first, const t_classifier &se
 }
 
 bool
+xcs_classifier_system::subsume1(const t_classifier& first, const t_classifier& second)
+{
+	bool	result;
+
+	result = (classifier_could_subsume(first, epsilon_zero, theta_sub)) && (first.subsume(second));
+
+	if (result)
+		stats.no_subsumption++;
+
+	return result;
+}
+
+bool
 xcs_classifier_system::need_ga(t_classifier_set &action_set, const bool flag_explore)
 {
 	double		average_set_stamp = 0;
@@ -1017,6 +1029,166 @@ xcs_classifier_system::genetic_algorithm(t_classifier_set &action_set, const t_s
 	}
 }
 
+void
+xcs_classifier_system::genetic_algorithm1(t_classifier_set& action_set, const t_state& detectors, const bool flag_condensation)
+{
+	t_set_iterator 	parent1;
+	t_set_iterator	parent2;
+
+	t_classifier	offspring1;
+	t_classifier	offspring2;
+
+
+	t_set_iterator	as;
+
+	//! set the time stamp of classifiers in [A]
+	for (as = action_set.begin(); as != action_set.end(); as++)
+	{
+		(**as).time_stamp = total_steps;
+	}
+
+	//! select offspring classifiers
+	if (!flag_ga_tournament_selection)
+	{
+		select_offspring(action_set, parent1, parent2);
+	}
+	else {
+		select_offspring_ts(action_set, parent1);
+		select_offspring_ts(action_set, parent2);
+	}
+
+	//! the GA is activated only if condensation is off
+	if (!flag_condensation)
+	{
+		offspring1 = (**parent1);
+		offspring2 = (**parent2);
+
+		offspring1.numerosity = offspring2.numerosity = 1;
+		offspring1.experience = offspring2.experience = 1;
+
+		if (xcs_random::random() < prob_crossover)
+		{
+			offspring1.recombine(offspring2);
+
+			//! classifier parameters are inited from parents' averages
+			if (flag_ga_average_init)
+			{
+				init_classifier(offspring1, true);
+				init_classifier(offspring2, true);
+				offspring1.prediction = offspring2.prediction = ((**parent1).prediction + (**parent2).prediction) / 2;
+			}
+			else {
+				offspring1.prediction = offspring2.prediction = ((**parent1).prediction + (**parent2).prediction) / 2;
+				offspring1.error = offspring2.error = ((**parent1).error + (**parent2).error) / 2;
+				offspring1.fitness = offspring2.fitness = ((**parent1).fitness + (**parent2).fitness) / 2;
+				offspring1.time_stamp = offspring2.time_stamp = total_steps;
+				offspring1.actionset_size = offspring2.actionset_size = ((**parent2).actionset_size + (**parent2).actionset_size) / 2;
+				//offspring1.actionset_size = offspring2.actionset_size = init_set_size;
+			}
+		}
+
+		offspring1.mutate(prob_mutation, detectors);
+		offspring2.mutate(prob_mutation, detectors);
+
+		//! offsprings are penalized through the reduction of fitness
+		offspring1.fitness = offspring1.fitness * 0.1;
+		offspring2.fitness = offspring2.fitness * 0.1;
+
+		t_condition	cond;
+
+		if (cond.allow_ga_subsumption() && flag_ga_subsumption)
+		{
+			if (subsume(**parent1, offspring1))
+			{	//! parent1 subsumes offspring1
+				(**parent1).numerosity++;
+				population_size++;
+			}
+			else if (subsume(**parent2, offspring1))
+			{	//! parent2 subsumes offspring1
+				(**parent2).numerosity++;
+				population_size++;
+			}
+			else {
+				//! neither of the parent subsumes offspring1
+				if (!flag_gaa_subsumption)
+				{
+					//! if the usual GA subsumption is used, offspring classifier is inserted
+					insert_classifier(offspring1);
+				}
+				else {
+					//! if Martin's GA subsumption is used, offspring classifier is compared to the classifiers in [A]
+					t_set_iterator 	par;
+
+					ga_a_subsume(action_set, offspring1, par);
+					if (par != action_set.end())
+					{
+						(**par).numerosity++;
+						population_size++;
+					}
+					else {
+						insert_classifier(offspring1);
+					}
+				}
+			}
+
+			if (subsume(**parent1, offspring2))
+			{	//! parent1 subsumes offspring2
+				(**parent1).numerosity++;
+				population_size++;
+			}
+			else if (subsume(**parent2, offspring2))
+			{	//! parent2 subsumes offspring2
+				(**parent2).numerosity++;
+				population_size++;
+			}
+			else {
+				//! neither of the parent subsumes offspring1
+				if (!flag_gaa_subsumption)
+				{
+					//! if the usual GA subsumption is used, offspring classifier is inserted
+					insert_classifier(offspring2);
+				}
+				else {
+					//! if Martin's GA subsumption is used, offspring classifier is compared to the classifiers in [A]
+					t_set_iterator 	par;
+
+					ga_a_subsume(action_set, offspring2, par);
+					if (par != action_set.end())
+					{
+						(**par).numerosity++;
+						population_size++;
+					}
+					else {
+						insert_classifier(offspring2);
+					}
+				}
+			}
+			delete_classifier();
+			delete_classifier();
+		}
+		else {
+			// insert offspring classifiers without subsumption
+			insert_classifier(offspring1);
+			insert_classifier(offspring2);
+
+			delete_classifier();
+			delete_classifier();
+		}
+
+	}
+	else {
+		// when in condensation
+		(**parent1).numerosity++;
+		population_size++;
+		delete_classifier();
+
+		(**parent2).numerosity++;
+		population_size++;
+		delete_classifier();
+	}
+}
+
+
 void	
 xcs_classifier_system::step(const bool exploration_mode, const bool condensationMode)
 {
@@ -1041,11 +1213,10 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 	 * or action_based as defined in Butz and Wilson 2001
 	 */
 
-	//If there is a new input that is not covered, the genetic algorithm is executed 
 	do {
 		match_set_size = match(current_input);
 	}
-   	while (perform_covering_GA(match_set, current_input));
+   	while (perform_covering(match_set, current_input));
 
 	//! build the prediction array P(.)
 	build_prediction_array();
@@ -1134,17 +1305,20 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 		}
 	}
 
-	/*
-
 	//! apply the genetic algorithm to [A] if needed
 	if (flag_discovery_component && need_ga(action_set, exploration_mode))
 	{
-		genetic_algorithm(action_set, previous_input, condensationMode);
+        xcs_classifier_system *xcs = getXCS_sys(); 
+		rule_generator rule_generator(xcs);
+        //cout << "total steps is "<< total_steps<<endl;
+        //cout << "this address is " << this <<endl;
+        rule_generator.genetic_algorithm(action_set, previous_input, condensationMode);
+		//rule_generator.run_ge_algo(action_set, previous_input, condensationMode);
+
+		//genetic_algorithm(action_set, previous_input, condensationMode);
 		stats.no_ga++;
 	}
-	*/
-
-
+	
 	//!	[A]-1 <= [A]
 	//!	r-1 <= r
 	previous_action_set = action_set;
@@ -1386,7 +1560,7 @@ xcs_classifier_system::init_classifier(t_classifier& classifier, bool average)
 }
 
 void
-xcs_classifier_system::init_classifier_1(t_classifier& classifier, bool average)
+xcs_classifier_system::init_classifier1(t_classifier& classifier, bool average)
 {
 	if (!average || (population_size == 0))
 	{
@@ -1430,6 +1604,7 @@ xcs_classifier_system::init_classifier_1(t_classifier& classifier, bool average)
 		assert(classifier.fitness >= 0);
 	};
 }
+
 //! build [A] from [M] and an action "act"
 /*!
  * \param action selected action
@@ -1617,6 +1792,42 @@ xcs_classifier_system::select_offspring(t_classifier_set &action_set, t_set_iter
 	for(; (sel<select.size()) && (random2>=select[sel]); sel++);
 	clp2 = action_set.begin()+sel;	// to be changed if list containers are used
 	assert(sel<select.size());
+}
+
+
+void
+xcs_classifier_system::select_offspring1(t_classifier_set& action_set, t_set_iterator& clp1, t_set_iterator& clp2)
+{
+	t_set_iterator	as;		//! iterator in [A]
+	vector<double>	select;		//! vector used to implement the roulette wheel
+	unsigned long	sel;		//! counter
+
+	double		fitness_sum;
+	double		random1;
+	double		random2;
+
+	select.clear();
+
+	fitness_sum = 0;
+	for (as = action_set.begin(); as != action_set.end(); as++)
+	{
+		fitness_sum += (**as).fitness;
+		select.push_back(fitness_sum);
+	}
+
+	random1 = (xcs_random::random()) * fitness_sum;
+	random2 = (xcs_random::random()) * fitness_sum;
+
+	if (random1 > random2)
+		swap(random1, random2);
+
+	for (sel = 0; (sel < select.size()) && (random1 >= select[sel]); sel++);
+	clp1 = action_set.begin() + sel;	// to be changed if list containers are used
+	assert(sel < select.size());
+
+	for (; (sel < select.size()) && (random2 >= select[sel]); sel++);
+	clp2 = action_set.begin() + sel;	// to be changed if list containers are used
+	assert(sel < select.size());
 }
 
 void	
@@ -1914,6 +2125,37 @@ xcs_classifier_system::select_offspring_ts(t_classifier_set& set, t_set_iterator
 }
 
 void
+xcs_classifier_system::select_offspring_ts1(t_classifier_set& set, t_set_iterator& clp)
+{
+	t_set_iterator	as;				//! iterator in set
+	t_set_iterator	winner = set.end();
+
+	while (winner == set.end())
+	{
+		for (as = set.begin(); as != set.end(); as++)
+		{
+			bool selected = false;
+
+			for (unsigned long num = 0; (!selected && (num < (**as).numerosity)); num++)
+			{
+				if (xcs_random::random() < tournament_size)
+				{
+					if ((winner == set.end()) ||
+						(((**winner).fitness / (**winner).numerosity) < ((**as).fitness / (**as).numerosity)))
+					{
+						winner = as;
+						selected = true;
+					}
+				}
+			}
+		}
+	}
+
+	clp = winner;
+
+}
+
+void
 xcs_classifier_system::init_population_load(string filename)
 {
 
@@ -2101,7 +2343,7 @@ xcs_classifier_system::delete_classifier()
 }
 
 void
-xcs_classifier_system::delete_classifier_1()
+xcs_classifier_system::delete_classifier1()
 {
 	t_set_iterator 	pp;
 
@@ -2231,158 +2473,50 @@ xcs_classifier_system::ga_a_subsume(t_classifier_set &action_set, const t_classi
 }
 
 
-bool 
-xcs_classifier_system::perform_covering_GA(t_classifier_set& match_set, const t_state& detectors) {
-	switch (covering_strategy)
-	{
-		//! perform covering according to Wilson 1995
-	case COVERING_STANDARD:
-		return perform_standard_GA(match_set, detectors);
-		break;
-
-		//! covering strategy as in Butz and Wilson 2001
-	case COVERING_ACTION_BASED:
-		return perform_nma_GA(match_set, detectors);
-		break;
-	default:
-		xcs_utility::error(class_name(), "perform_covering", "covering strategy not allowed", 1);
-		exit(-1);
-	}
+xcs_classifier_system* xcs_classifier_system::getXCS_sys() {
+	return this;
 }
 
-
-bool
-xcs_classifier_system::perform_standard_covering_GA(t_classifier_set& match_set, const t_state& detectors)
-{
-	if ((match_set.size() == 0) || need_standard_covering_GA(match_set, detectors))
-	{
-		rule_generator rg;
-		rg.do_cover_GA(detectors);
-		
-		t_classifier *classifier;
-
-		classifier = rg.get_classifier();
-
-		//! create a covering classifier
-		//classifier.cover(detectors);
-
-		//! init classifier parameters
-		init_classifier(*classifier);
-
-
-		//! insert the new classifier in [P]
-		insert_classifier(*classifier);
-
-		//! delete another classifier from [P] if necessary
-		delete_classifier();
-
-		//! signal that a covering operation took place
-		return true;
-	}
-	return false;
+void    
+xcs_classifier_system::get_total_steps(unsigned long* total_step) {
+	*total_step = total_steps;
 }
 
-
-
-
-bool
-xcs_classifier_system::need_standard_covering_GA(t_classifier_set& match_set, const t_state& detectors)
-{
-	//unsigned long	i;
-	t_set_iterator	pp;					//! iterator for visiting [P]
-	//unsigned long	sz = 0;					//! number of micro classifiers in [M]
-	double		average_prediction;			//!	average prediction in [P]
-	double		total_match_set_prediction;		//!	total prediction in [M]
-
-	if (match_set.size() == 0)
-		return true;
-
-	average_prediction = 0;
-	total_match_set_prediction = 0.;
-
-	for (pp = population.begin(); pp != population.end(); pp++)
-	{
-		average_prediction += (*pp)->prediction * (*pp)->numerosity;
-		//cout << (*pp)->prediction << "*" << (*pp)->numerosity << "\t";
-	}
-	//cout << endl << endl;
-
-	average_prediction = average_prediction / population_size;
-
-	for (pp = match_set.begin(); pp != match_set.end(); pp++)
-	{
-		total_match_set_prediction += (*pp)->prediction * (*pp)->numerosity;
-	}
-
-	//cerr << "==> " << total_match_set_prediction << "<=" << fraction_for_covering << " x " << average_prediction << endl;;
-
-	return (total_match_set_prediction <= fraction_for_covering * average_prediction);
+void
+xcs_classifier_system::get_flag_ga_tournament_selection(bool ga_tournament_selection){
+	ga_tournament_selection = flag_ga_tournament_selection;
 }
 
-bool
-xcs_classifier_system::perform_nma_covering_GA(t_classifier_set& match_set, const t_state& detectors)
-{
-	vector<t_system_prediction>::iterator	pr;
-	t_action		act;
-	unsigned long		total_actions = act.actions();
-	unsigned long		covered_actions = total_actions;
-	bool			covered_some_actions = false;		//! becomes true when covering classifiers are created
+void	
+xcs_classifier_system::get_prob_crossover(double* prob_cross) {
+	*prob_cross = prob_crossover;
+}
 
-	//! clear the prediction array
-	init_prediction_array();
+void   
+xcs_classifier_system::get_flag_ga_average_init(bool ga_average_init) {
+	ga_average_init = flag_ga_average_init;
+}
 
-	//! build P(.)
-	build_prediction_array();
+void    
+xcs_classifier_system::get_flag_ga_subsumption(bool ga_subsumption) {
+	ga_subsumption = flag_ga_subsumption;
+}
 
-	/*for(pr=prediction_array.begin(); pr!=prediction_array.end(); pr++ )
-	{
-		//!
-		if (pr->n==0)
-		{
-			covered_actions--;
-		}
-	}
-	*/
+void    
+xcs_classifier_system::get_population_size(unsigned long* size) {
+	*size = population_size;
+}
+void    
+xcs_classifier_system::set_population_size(unsigned long* size) {
+	population_size = *size;
+}
 
-	//! the number of actions that are covered is computed as the number of available actions
-	//! in the prediction array P(.)
+void	
+xcs_classifier_system::get_flag_gaa_subsumption(bool gaa_subsumption) {
+	gaa_subsumption = flag_gaa_subsumption;
+}
 
-	covered_actions = available_actions.size();
-
-	covered_some_actions = false;
-
-	if (covered_actions < tetha_nma)
-	{
-		for (pr = prediction_array.begin(); pr != prediction_array.end() && (covered_actions < tetha_nma); pr++)
-		{
-			//! 
-			if (pr->n == 0)
-			{
-				rule_generator rg;
-				rg.do_cover_GA(detectors);
-
-				t_classifier* classifier;
-
-				classifier = rg.get_classifier();
-
-				//t_classifier	classifier;
-
-				//classifier.cover(detectors);
-				//classifier.action = pr->action;
-
-				classifier->action = pr->action;
-
-				init_classifier(classifier, flag_cover_average_init);
-
-				insert_classifier(classifier);
-
-				delete_classifier();
-
-				covered_actions++;
-			}
-		}
-		covered_some_actions = true;
-	}
-
-	return covered_some_actions;
-};
+void
+xcs_classifier_system::get_prob_mutation(double* prob_muta) {
+	*prob_muta = prob_mutation;
+}
