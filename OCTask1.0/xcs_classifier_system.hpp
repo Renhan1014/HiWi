@@ -69,7 +69,7 @@
 #include "xcs_definitions.hpp"
 #include "xcs_random.hpp"
 #include "xcs_config_mgr2.hpp"
-#include "rule_generator.hpp"
+//#include "rule_generator.hpp"
 
 using namespace std;
 
@@ -405,22 +405,25 @@ private:
 	void	genetic_algorithm(t_classifier_set &action_set, const t_state& detectors, const bool flag_condensation=false );
 	//@}
 public:
-	void	genetic_algorithm1(t_classifier_set& action_set, const t_state& detectors, const bool flag_condensation = false);
+	//void	genetic_algorithm1(t_classifier_set& action_set, const t_state& detectors, const bool flag_condensation = false);
 	void    get_total_steps(unsigned long *total_step);
 	void	get_flag_ga_tournament_selection(bool ga_tournament_selection);
-	void	select_offspring1(t_classifier_set&, t_set_iterator&, t_set_iterator&);
-	void	select_offspring_ts1(t_classifier_set&, t_set_iterator&);
+	//void	select_offspring1(t_classifier_set&, t_set_iterator&, t_set_iterator&);
+	//void	select_offspring_ts1(t_classifier_set&, t_set_iterator&);
 	void	get_prob_crossover(double *prob_cross);
 	void    get_flag_ga_average_init(bool ga_average_init);
-	void	init_classifier1(t_classifier& classifier, bool average = false);
+	//void	init_classifier1(t_classifier& classifier, bool average = false);
 	void    get_flag_ga_subsumption(bool ga_subsumption);
-	bool 	subsume1(const t_classifier& first, const t_classifier& second);
+	//bool 	subsume1(const t_classifier& first, const t_classifier& second);
 	void    get_population_size(unsigned long *size);
 	void    set_population_size(unsigned long* size);
 	void	get_flag_gaa_subsumption(bool gaa_subsumption);
-	void	insert_classifier1(t_classifier& cs);
-	void	delete_classifier1();
+	//void	insert_classifier1(t_classifier& cs);
+	//void	delete_classifier1();
 	void    get_prob_mutation(double* prob_muta);
+public:
+    void step_part_1(const bool exploration_mode, const bool condensationMode);
+	void step_part_2(const bool exploration_mode, const bool condensationMode);
  private:
 
 	//! variables for [P], [M], [A], and [A]-1

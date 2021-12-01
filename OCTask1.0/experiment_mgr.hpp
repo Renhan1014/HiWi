@@ -106,6 +106,7 @@ public:
 	//! perform the experiments
 	void perform_experiments();
 
+
 	//! print the flags for save various experiment statistics
 	void print_save_options(ostream& output) const;
 
@@ -125,8 +126,8 @@ private:
 	//================================================================================
 	
 	long	current_experiment;		//!< the experiment currently running
-	long	first_experiment;		//!< number of the first experiment to run
-	long	no_experiments;			//!< numbero of total experiments to run
+	//long	first_experiment;		//!< number of the first experiment to run
+	//long	no_experiments;			//!< numbero of total experiments to run
 
 	long	current_problem;		//!< the problem being currently executed
 	long	first_learning_problem;		//!< first problem executed

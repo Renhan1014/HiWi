@@ -66,9 +66,9 @@
  */
 
 #include "xcs_definitions.hpp" 
-#include "experiment_mgr.hpp"
-#include "read_Inp.hpp"
-
+//#include "experiment_mgr.hpp"
+#include "in_output.hpp"
+//#include <typeinfo>
 /*!
 //	global variables
 */
@@ -92,7 +92,7 @@
 t_environment		*Environment;
 t_classifier_system	*XCS;
 
-experiment_mgr* Session;
+//experiment_mgr* Session;
 bool flag_verbose = false;		//! if true verbose output is printed
 
 /*! 
@@ -105,9 +105,10 @@ bool flag_verbose = false;		//! if true verbose output is printed
 int
 main(int argc, char *argv[])
 {
-	string	str_suffix = "maze"; 		//! configuration file suffix
-	int		o;							//! current option
+	string	str_suffix = "weight"; 		//! configuration file suffix
+	//int		o;							//! current option
 	
+	/*
 	if (argc==1)
 	{
 		cerr << "USAGE:\t\t" << argv[0] << "\t" << "-f <suffix> [-v] [-s <set>] " << endl;
@@ -145,7 +146,7 @@ main(int argc, char *argv[])
 				xcs_utility::error("main","main",msg,0);
 		}
 	}
-	
+	*/
 
 	//! system configuration begins
 	if (flag_verbose) 
@@ -175,20 +176,8 @@ main(int argc, char *argv[])
 	if (flag_verbose) 
 		cout << "Environment            \t\tok." << endl;
     
-    //get input from the file
-	read_Inp read;
-    read.get_Inp_From_File("input.txt");
-    read.get_Inp_To_Vec();
-    vector<double> inp1 = read.get_Input();
-    vector<double> inp;
-    inp.assign(inp1.begin(),inp1.end());
-
-	read.get_Reward_To_Value();
-    double reward = read.get_reward();
-
-    Environment->setRewardFromFile(reward);
-    Environment->setInput(inp);
-    Environment->init_env();
+    Environment->weight_init();
+    
         
 	//! init the condition class
 	t_condition		real_interval_condition(xcs_config2);
@@ -200,6 +189,84 @@ main(int argc, char *argv[])
 	if (flag_verbose) 
 		cout << "Classifier System      \t\tok." << endl;
 
+    //prepare for input&reward&weight
+    
+	double get_weight[3];
+    vector<long long> get_input;
+    int get_reward;
+	unsigned long get_action;
+    
+    //simulate input &reward &weight
+	struct dls_system_snapshot sys1;  
+    memset(&sys1,0,sizeof(sys1));
+    sys1.n_tasks = 1;
+    sys1.longest_path = 3;
+    sys1.max_width = 5;
+    sys1.max_cpu_temp = 7;
+    sys1.gpu_temp = 9;
+    sys1.avg_pu_waiting_time = 11;
+    
+	int received_reward = 10;
+	vector<double> weight_xcs;
+    unsigned long action_xcs;
+    
+    //Prepare for performing experiment
+	bool flag_condensation = false;
+	bool flag_exploration = true;
+    XCS->begin_experiment();
+	XCS->begin_problem();
+	Environment->begin_problem(flag_exploration);
+	in_output in_out;
+    
+	//perform one step
+	//First, get the input
+	in_out.receiveInput(sys1);
+	in_out.get_Input(get_input);
+	//transfer Input type from long long to double
+	vector<double> input1;
+	for (int i =0; i<get_input.size();i++) {
+		double val = static_cast<double>(get_input[i]);
+        input1.push_back(val);
+	}
+    //send input to xcs
+	Environment->setInput(input1);
+	
+	// xcs perform step_part_1 and select a action
+	XCS->step_part_1(flag_exploration,flag_condensation);
+	
+	//get action form xcs
+	Environment->getWeightAndAction(weight_xcs, action_xcs);
+	
+	//action from xcs to in_output
+	in_out.get_Action_from_XCS(weight_xcs,action_xcs);
+	//send action to outside from in_output
+	
+	in_out.sendAction(get_weight,get_action);
+	
+
+	
+	//in_output receive reward from outside
+    in_out.receiveReward(received_reward);
+	
+    //get the reward form in_output
+	in_out.get_Reward(get_reward);
+	
+	//send reward to xcs
+    Environment->setRewardFromOut(static_cast<double>(get_reward));
+	
+	//xcs perform step part 2 and update
+	XCS->step_part_2(flag_exploration,flag_condensation);
+	
+   
+    //print result
+    cout << "selected_action is: " << get_action <<endl;
+	cout << "final_weight is: " << endl;
+	for(int i = 0; i < 3;i++){
+		cout << get_weight[i]<< endl;
+	}
+
+
+    /*
 	//! init the experiment manager
 	Session = new experiment_mgr(xcs_config2);
 	if (flag_verbose) 
@@ -214,10 +281,6 @@ main(int argc, char *argv[])
 	Session->perform_experiments();
 	if (flag_verbose) 
 		cout << "End Experiments...\n" << endl;
-	
-	vector<double> weight;
-	Environment->getWeight(weight);
-	read.put_Output_To_String(weight);
-	read.put_Output_To_File("weight.txt");
+	*/
 	
 }

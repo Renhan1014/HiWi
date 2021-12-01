@@ -88,8 +88,8 @@ experiment_mgr::experiment_mgr(xcs_config_mgr2 &xcs_config)
 	}
 	
 	try {
-		first_experiment = xcs_config.Value(tag_name(), "first experiment");
-		no_experiments = xcs_config.Value(tag_name(), "number of experiments");
+		//first_experiment = xcs_config.Value(tag_name(), "first experiment");
+		//no_experiments = xcs_config.Value(tag_name(), "number of experiments");
 		first_learning_problem = xcs_config.Value(tag_name(), "first problem");
 		no_learning_problems = xcs_config.Value(tag_name(), "number of learning problems");
 		no_condensation_problems = xcs_config.Value(tag_name(), "number of condensation problems");
@@ -141,6 +141,7 @@ experiment_mgr::experiment_mgr(xcs_config_mgr2 &xcs_config)
 
 	current_experiment = -1;	//! to check whether the method reset_experiments is called
 	current_problem = -1;		//! to check whether the method reset_problems is called
+        cout <<"manager inited."<<endl;
 }
 
 void
@@ -167,123 +168,292 @@ experiment_mgr::perform_experiments()
 	timer_overall.start();
 	
 	//! performs all the experiments, one by one.
-	for(current_experiment=first_experiment; current_experiment < (first_experiment+no_experiments); current_experiment++)
-	{
-
+	//for(current_experiment=first_experiment; current_experiment < (first_experiment+no_experiments); current_experiment++)
+	//{
+    current_experiment=0;
 		//! true if condensation is active
-		bool flag_condensation = false;
+	bool flag_condensation = false;
 
 		//! init XCS for the current experiment
-		XCS->begin_experiment();
+	XCS->begin_experiment();
 		
 		//! the first problem is always solved in exploration
-		bool flag_exploration = true;
+	bool flag_exploration = true;
 
 		
 		//! init the file for statistics
-		char	file_statisticsName[MSGSTR];
-		if (!flag_compact_mode)
-			sprintf(file_statisticsName, "statistics.%s-%ld", extension.c_str(), current_experiment);
-		else 
-			sprintf(file_statisticsName, "compact_stats.%s-%ld", extension.c_str(), current_experiment);
+	char	file_statisticsName[MSGSTR];
+	if (!flag_compact_mode)
+		sprintf(file_statisticsName, "statistics.%s-%ld", extension.c_str(), current_experiment);
+	else 
+		sprintf(file_statisticsName, "compact_stats.%s-%ld", extension.c_str(), current_experiment);
 		
+	/*! 
+	 * if first_learning_problem is greater than 0 indicates that the experiment must be restored from file; 
+	 * otherwise the experiment starts from scratch.
+	*/
+	if (first_learning_problem>0)
+	{	
+	    //! restore from the current experiment
+		//cout << "\nRestarting Experiment " << current_experiment;
+		cout << "\nRestarting Experiment " << endl;
+		cout << "... " << endl;
+
+		//! experiments statistics will be appened to existing files
+		sprintf(sysCall,"gunzip %s.gz", file_statisticsName);
+		system(sysCall);
+		file_statistics.open(file_statisticsName,ios::out|ios::app);
+
+		//! restores the state of the current experiment
+		flag_exploration = restore_state(current_experiment);	
+	} else {
+		//! init the statistics file for a new experiment
+		file_statistics.open(file_statisticsName);
+	};
+
+	if (!file_statistics.good())
+	{
+		char errMsg[MSGSTR] = "";
+		sprintf(errMsg,"Statistics file '%s' not open",file_statisticsName);
+		xcs_utility::error(class_name(),"StartSession",string(errMsg),1);
+	}
+
+	char 	file_traceName[MSGSTR];
+	sprintf(file_traceName, "trace.%s-%ld", extension.c_str(), current_experiment);
+
+	if (flag_trace)
+	{	
 		/*! 
 		 * if first_learning_problem is greater than 0 indicates that the experiment must be restored from file; 
 		 * otherwise the experiment starts from scratch.
 		 */
 		if (first_learning_problem>0)
 		{	
-			//! restore from the current experiment
-			cout << "\nRestarting Experiment " << current_experiment;
-			cout << "... " << endl;
-
-			//! experiments statistics will be appened to existing files
-			sprintf(sysCall,"gunzip %s.gz", file_statisticsName);
+			sprintf(sysCall,"gunzip %s.gz", file_traceName);
 			system(sysCall);
-			file_statistics.open(file_statisticsName,ios::out|ios::app);
-
-			//! restores the state of the current experiment
-			flag_exploration = restore_state(current_experiment);	
-		} else {
-			//! init the statistics file for a new experiment
-			file_statistics.open(file_statisticsName);
-		};
-
-		if (!file_statistics.good())
+			file_trace.open(file_traceName,ios::out|ios::app);
+		}
+		else
+		{	//! create a new trace file
+			file_trace.open(file_traceName);
+		}
+		if (!file_trace.good())
 		{
 			char errMsg[MSGSTR] = "";
-			sprintf(errMsg,"Statistics file '%s' not open",file_statisticsName);
+			sprintf(errMsg,"Trace file '%s' not open",file_traceName);
 			xcs_utility::error(class_name(),"StartSession",string(errMsg),1);
 		}
+	}
+		
+	//! start timer for the experiment
+	timer_experiment.start();
+	average_problem_time = 0;
 
-		char 	file_traceName[MSGSTR];
-		sprintf(file_traceName, "trace.%s-%ld", extension.c_str(), current_experiment);
 
-		if (flag_trace)
-		{	
-			/*! 
-			 * if first_learning_problem is greater than 0 indicates that the experiment must be restored from file; 
-			 * otherwise the experiment starts from scratch.
-			 */
-			if (first_learning_problem>0)
-			{	
-				sprintf(sysCall,"gunzip %s.gz", file_traceName);
-				system(sysCall);
-				file_trace.open(file_traceName,ios::out|ios::app);
-			}
-			else
-			{	//! create a new trace file
-				file_trace.open(file_traceName);
-			}
-			if (!file_trace.good())
+	current_no_test_problems = 0;
+	flag_compact_stats_printed = false;
+
+	compact_average_steps = 0;
+	compact_average_reward_sum = 0;
+	compact_average_size = 0;
+        cout << "begin experment." << endl;
+	//! performs the learning problems one by one
+	for(current_problem=first_learning_problem; 
+		current_problem<first_learning_problem+2*(no_learning_problems+no_condensation_problems)+no_test_problems; 
+		current_problem++)
+	{
+		if (flag_compact_mode && !flag_exploration)
+		{
+			if ((current_no_test_problems!=0) && (current_no_test_problems%save_stats_every==0))
 			{
-				char errMsg[MSGSTR] = "";
-				sprintf(errMsg,"Trace file '%s' not open",file_traceName);
-				xcs_utility::error(class_name(),"StartSession",string(errMsg),1);
+				file_statistics << current_experiment << '\t' << current_no_test_problems << '\t';
+				file_statistics << compact_average_steps/save_stats_every << '\t';
+				file_statistics << compact_average_reward_sum/save_stats_every << '\t';
+				file_statistics << compact_average_size/save_stats_every << "\tTesting";
+				file_statistics << endl;
+				flag_compact_stats_printed = true;
+				compact_average_steps = 0;
+				compact_average_reward_sum = 0;
+				compact_average_size = 0;
 			}
 		}
-		
-		//! start timer for the experiment
-		timer_experiment.start();
-		average_problem_time = 0;
 
+		/*! 
+		 * write the number of experiment and problem to the files
+		 */
 
-		current_no_test_problems = 0;
-		flag_compact_stats_printed = false;
+		//! save information in the statistics file
+		if (!flag_compact_mode)
+			//file_statistics << current_experiment << '\t' << current_problem+((current_problem-first_learning_problem)) << '\t';
+			file_statistics << current_experiment << '\t' << current_problem << '\t';
 
-		compact_average_steps = 0;
-		compact_average_reward_sum = 0;
-		compact_average_size = 0;
-
-		//! performs the learning problems one by one
-		for(current_problem=first_learning_problem; 
-			current_problem<first_learning_problem+2*(no_learning_problems+no_condensation_problems)+no_test_problems; 
-			current_problem++)
+		//! if needed save information in the trace file
+		if (flag_trace)
 		{
-			if (flag_compact_mode && !flag_exploration)
-			{
-				if ((current_no_test_problems!=0) && (current_no_test_problems%save_stats_every==0))
-				{
-					file_statistics << current_experiment << '\t' << current_no_test_problems << '\t';
-					file_statistics << compact_average_steps/save_stats_every << '\t';
-					file_statistics << compact_average_reward_sum/save_stats_every << '\t';
-					file_statistics << compact_average_size/save_stats_every << "\tTesting";
-					file_statistics << endl;
-					flag_compact_stats_printed = true;
-					compact_average_steps = 0;
-					compact_average_reward_sum = 0;
-					compact_average_size = 0;
-				}
-			}
+			file_trace << current_experiment << "\t" << current_problem << '\t';
+		}
+			
+		//! start timer for problem
+		timer_problem.start();
 
+		//! init XCS for the current problem
+		XCS->begin_problem();
+
+		//! determine whether condensation should be activated
+		flag_condensation = 
+			((no_condensation_problems>0) && 
+			(current_problem>=first_learning_problem+2*no_learning_problems));
+
+		//! if learning has ended, the problems are performed in testing mode
+		if (current_problem>=(first_learning_problem+2*(no_learning_problems+no_condensation_problems)))	
+		{
+			flag_exploration = false;
+		}
+			
+		//! init the environment for the current problem
+		Environment->begin_problem(flag_exploration);
+
+		reward_sum = 0;
+		problem_steps = 0;
+               // cout << "begin to solve a problem."<<endl;
+		do 
+		{			
+			//! XCS executes one step
+			//XCS->step(flag_exploration,flag_condensation);
+			XCS->step_part_1(flag_exploration,flag_condensation);
+                 //       cout<<"step part 1 finished."<<endl;
+			Environment->perform();
+                   //     cout << "envir perform." << endl;
+			XCS->step_part_2(flag_exploration,flag_condensation);
+                     //   cout << "step part 2 finished." << endl;
+			problem_steps++;
+				
+			//! sum up the reward received
+			reward_sum = reward_sum + Environment->reward();
+				
+		} 
+		while ((problem_steps<no_max_steps) && (!Environment->stop()));
+
+		//! stops the timer for the problem
+		timer_problem.stop();
+		average_problem_time += timer_problem.elapsed();
+
+		//! problem trace information is saved
+		/*! by default the statistics file contain (for each line)
+		 *  - experiment number
+		 *  - problem number
+		 *  - trace information from XCS (usually null)
+		 *  - trace information from the environment
+		 *  - "Learning/Testing" whether the problem has been solved in learning or testing mode
+		 */
+
+		if (flag_trace) 
+		{
+			//! save trace information
+			XCS->trace(file_trace);
+			Environment->trace(file_trace);
+			if (flag_exploration)
+				file_trace << "\t" << "Learning" << endl;
+			else 
+				file_trace << "\t" << "Testing" << endl;
+		}
+
+		//! XCS ends the current problem
+		XCS->end_problem();
+			
+		//! the environment ends the current problem
+		Environment->end_problem();
+			
+		//! computes the average to be saved when in compact mode
+		//! (current_no_test_problems==0) || ((current_no_test_problems%save_stats_every)==0)))
+		if (flag_compact_mode)
+		{
+			if (!flag_exploration)
+			{
+				compact_average_steps += problem_steps;
+				compact_average_reward_sum += reward_sum;
+				compact_average_size += XCS->size();
+			}
+		}
+
+		//! problem statistics are saved
+		/*! by default the statistics file contain (for each line)
+		 *  - experiment number
+		 *  - problem number
+		 *  - number of problem steps
+		 *  - total reward gained during the problem
+		 *  - population size
+		 *  - "Learning/Testing" whether the problem has been solved in learning or testing mode
+		 */
+
+		if (!flag_compact_mode)
+		{
+			file_statistics << problem_steps << '\t';
+			file_statistics << reward_sum << '\t';
+			file_statistics << XCS->size() << '\t';
+			//! if the environment is single step, it saves the system_error
+			if (Environment->single_step())
+			{
+				file_statistics << XCS->get_system_error() << "\t";
+			}
+			file_statistics << (flag_exploration ? "Learning" : "Testing") << endl;
+		}
+		
+		//! it switches from exploration to exploitation and viceversa
+		flag_exploration = !flag_exploration;
+
+		if ((current_problem-first_learning_problem>0) && ((current_problem-first_learning_problem)%save_interval==0))
+		{
+			if (flag_save_state) 
+				save_state((current_experiment), flag_exploration, current_problem);
+			//if (flag_save_avf)
+			//	save_avf((current_experiment), flag_exploration, current_problem);
+		}
+
+		if (!flag_exploration)
+		{
+			current_no_test_problems++;
+			flag_compact_stats_printed = false;
+		}
+
+	} //!< end learning/testing problems
+
+	//! stops the experimnt timer
+	timer_experiment.stop();
+
+	//! memorize the time used in this experiment
+	experiment_time.push_back(timer_experiment.elapsed());
+	problem_time.push_back(average_problem_time/(no_learning_problems+no_condensation_problems+no_test_problems));
+
+
+
+	/*!
+	 *
+	 * Test the environment 
+	 * 
+	 * for each possible initial configuration of the environment
+	 * XCS is applied until the problem's end
+	 *
+	 */
+
+	if (Environment->allow_test() && flag_test_environment)
+	{
+		Environment->reset_problem();
+
+		do 
+		{
+			XCS->begin_problem();
+
+			//! when testing the environment
+			flag_exploration = false;
+			flag_condensation = false;
+			///==============================================================================
 			/*! 
 			 * write the number of experiment and problem to the files
 			 */
-
+		
 			//! save information in the statistics file
-			if (!flag_compact_mode)
-				//file_statistics << current_experiment << '\t' << current_problem+((current_problem-first_learning_problem)) << '\t';
-				file_statistics << current_experiment << '\t' << current_problem << '\t';
+			file_statistics << current_experiment << '\t' << current_problem << '\t';
 
 			//! if needed save information in the trace file
 			if (flag_trace)
@@ -291,43 +461,28 @@ experiment_mgr::perform_experiments()
 				file_trace << current_experiment << "\t" << current_problem << '\t';
 			}
 			
-			//! start timer for problem
-			timer_problem.start();
-
-			//! init XCS for the current problem
-			XCS->begin_problem();
-
-			//! determine whether condensation should be activated
-			flag_condensation = 
-				((no_condensation_problems>0) && 
-				(current_problem>=first_learning_problem+2*no_learning_problems));
-
-			//! if learning has ended, the problems are performed in testing mode
-			if (current_problem>=(first_learning_problem+2*(no_learning_problems+no_condensation_problems)))	
-			{
-				flag_exploration = false;
-			}
-			
-			//! init the environment for the current problem
-			Environment->begin_problem(flag_exploration);
-
 			reward_sum = 0;
 			problem_steps = 0;
 			do 
-			{			
+			{
+				//! if more than 5000 steps have been performed, the systems is forced to explore
+				if (problem_steps>5000)
+				{
+					flag_exploration = true;
+				}
+			
 				//! XCS executes one step
-				XCS->step(flag_exploration,flag_condensation);
+				//XCS->step(flag_exploration,flag_condensation);
+				XCS->step_part_1(flag_exploration,flag_condensation);
+				Environment->perform();
+				XCS->step_part_2(flag_exploration,flag_condensation);
 				problem_steps++;
 				
 				//! sum up the reward received
 				reward_sum = reward_sum + Environment->reward();
 				
 			} 
-			while ((problem_steps<no_max_steps) && (!Environment->stop()));
-
-			//! stops the timer for the problem
-			timer_problem.stop();
-			average_problem_time += timer_problem.elapsed();
+			while (!Environment->stop());
 
 			//! problem trace information is saved
 			/*! by default the statistics file contain (for each line)
@@ -346,7 +501,7 @@ experiment_mgr::perform_experiments()
 				if (flag_exploration)
 					file_trace << "\t" << "Learning" << endl;
 				else 
-					file_trace << "\t" << "Testing" << endl;
+					file_trace << "\t" << "Solution" << endl;
 			}
 
 			//! XCS ends the current problem
@@ -355,18 +510,6 @@ experiment_mgr::perform_experiments()
 			//! the environment ends the current problem
 			Environment->end_problem();
 			
-			//! computes the average to be saved when in compact mode
-			//! (current_no_test_problems==0) || ((current_no_test_problems%save_stats_every)==0)))
-			if (flag_compact_mode)
-			{
-				if (!flag_exploration)
-				{
-					compact_average_steps += problem_steps;
-					compact_average_reward_sum += reward_sum;
-					compact_average_size += XCS->size();
-				}
-			}
-
 			//! problem statistics are saved
 			/*! by default the statistics file contain (for each line)
 			 *  - experiment number
@@ -374,198 +517,69 @@ experiment_mgr::perform_experiments()
 			 *  - number of problem steps
 			 *  - total reward gained during the problem
 			 *  - population size
-			 *  - "Learning/Testing" whether the problem has been solved in learning or testing mode
-			 */
+			 *  - "Learning/Testing" whether the problem has been solved in learning or testing mode					 */
 
-			if (!flag_compact_mode)
+			file_statistics << problem_steps << '\t';
+			file_statistics << reward_sum << '\t';
+			file_statistics << XCS->size() << '\t';
+			//! if the environment is single step, it saves the system_error
+			if (Environment->single_step())
 			{
-				file_statistics << problem_steps << '\t';
-				file_statistics << reward_sum << '\t';
-				file_statistics << XCS->size() << '\t';
-				//! if the environment is single step, it saves the system_error
-				if (Environment->single_step())
-				{
-					file_statistics << XCS->get_system_error() << "\t";
-				}
-				file_statistics << (flag_exploration ? "Learning" : "Testing") << endl;
+				file_statistics << XCS->get_system_error() << "\t";
 			}
+			file_statistics << (flag_exploration ? "Learning" : "Solution") << endl;
 		
-			//! it switches from exploration to exploitation and viceversa
-			flag_exploration = !flag_exploration;
+			///==============================================================================
+			current_problem++;
 
-			if ((current_problem-first_learning_problem>0) && ((current_problem-first_learning_problem)%save_interval==0))
-			{
-				if (flag_save_state) 
-					save_state((current_experiment), flag_exploration, current_problem);
-				//if (flag_save_avf)
-				//	save_avf((current_experiment), flag_exploration, current_problem);
-			}
-
-			if (!flag_exploration)
-			{
-				current_no_test_problems++;
-				flag_compact_stats_printed = false;
-			}
-
-		} //!< end learning/testing problems
-
-		//! stops the experimnt timer
-		timer_experiment.stop();
-
-		//! memorize the time used in this experiment
-		experiment_time.push_back(timer_experiment.elapsed());
-		problem_time.push_back(average_problem_time/(no_learning_problems+no_condensation_problems+no_test_problems));
-
-
-
-		/*!
-		 *
-		 * Test the environment 
-		 * 
-		 * for each possible initial configuration of the environment
-		 * XCS is applied until the problem's end
-		 *
-		 */
-
-		if (Environment->allow_test() && flag_test_environment)
-		{
-			Environment->reset_problem();
-
-			do 
-			{
-				XCS->begin_problem();
-
-				//! when testing the environment
-				flag_exploration = false;
-				flag_condensation = false;
-				///==============================================================================
-				/*! 
-				 * write the number of experiment and problem to the files
-				 */
+		} while (Environment->next_problem());
+	} 
 		
-				//! save information in the statistics file
-				file_statistics << current_experiment << '\t' << current_problem << '\t';
+	//! stop the timer for the whole session
+	timer_overall.stop();
 
-					//! if needed save information in the trace file
-					if (flag_trace)
-					{
-						file_trace << current_experiment << "\t" << current_problem << '\t';
-					}
-			
-					reward_sum = 0;
-					problem_steps = 0;
-					do 
-					{
-						//! if more than 5000 steps have been performed, the systems is forced to explore
-						if (problem_steps>5000)
-						{
-							flag_exploration = true;
-						}
-			
-						//! XCS executes one step
-						XCS->step(flag_exploration,flag_condensation);
-						problem_steps++;
-				
-						//! sum up the reward received
-						reward_sum = reward_sum + Environment->reward();
-				
-					} 
-					while (!Environment->stop());
-
-					//! problem trace information is saved
-					/*! by default the statistics file contain (for each line)
-					 *  - experiment number
-					 *  - problem number
-					 *  - trace information from XCS (usually null)
-					 *  - trace information from the environment
-					 *  - "Learning/Testing" whether the problem has been solved in learning or testing mode
-					 */
-
-					if (flag_trace) 
-					{
-						//! save trace information
-						XCS->trace(file_trace);
-						Environment->trace(file_trace);
-						if (flag_exploration)
-							file_trace << "\t" << "Learning" << endl;
-						else 
-							file_trace << "\t" << "Solution" << endl;
-					}
-
-					//! XCS ends the current problem
-					XCS->end_problem();
-			
-					//! the environment ends the current problem
-					Environment->end_problem();
-			
-					//! problem statistics are saved
-					/*! by default the statistics file contain (for each line)
-					 *  - experiment number
-					 *  - problem number
-					 *  - number of problem steps
-					 *  - total reward gained during the problem
-					 *  - population size
-					 *  - "Learning/Testing" whether the problem has been solved in learning or testing mode
-					 */
-
-					file_statistics << problem_steps << '\t';
-					file_statistics << reward_sum << '\t';
-					file_statistics << XCS->size() << '\t';
-					//! if the environment is single step, it saves the system_error
-					if (Environment->single_step())
-					{
-						file_statistics << XCS->get_system_error() << "\t";
-					}
-					file_statistics << (flag_exploration ? "Learning" : "Solution") << endl;
+	//! XCS ends the experiment
+	XCS->end_experiment();
 		
-					///==============================================================================
-					current_problem++;
-
-				} while (Environment->next_problem());
-		} 
-		
-		//! stop the timer for the whole session
-		timer_overall.stop();
-
-		//! XCS ends the experiment
-		XCS->end_experiment();
-		
-		//! at the end of the experiment the file for statistics is closed and gzipped
-		file_statistics.close();
-		sprintf(sysCall, "gzip -f %s", file_statisticsName);
-		system(sysCall);
+	//! at the end of the experiment the file for statistics is closed and gzipped
+	file_statistics.close();
+	sprintf(sysCall, "gzip -f %s", file_statisticsName);
+	system(sysCall);
 	
-		if (flag_trace>0)
-		{
-			file_trace.close();
-			sprintf(sysCall, "gzip -f %s", file_traceName);
-			system(sysCall);
-		}
+	if (flag_trace>0)
+	{
+		file_trace.close();
+		sprintf(sysCall, "gzip -f %s", file_traceName);
+		system(sysCall);
+	}
 
-		//! save requested information about the experiment.
-		if (flag_save_state) 
-		{
-			clog << "\t" << current_experiment+1 << "/" << first_experiment+no_experiments << "\t";
-			clog << "saving the experiment state...";
-			save_state(current_experiment,flag_exploration);
-			clog << "\t\t\tok" << endl;
-		}
+	//! save requested information about the experiment.
+	if (flag_save_state) 
+	{
+		//clog << "\t" << current_experiment+1 << "/" << first_experiment+no_experiments << "\t";
+		clog << "\t" << current_experiment+1 << "/" << 1 << "\t";
+		clog << "saving the experiment state...";
+		save_state(current_experiment,flag_exploration);
+		clog << "\t\t\tok" << endl;
+	}
 
-		if (flag_save_agent_report) 
-		{
-			clog << "\t" << current_experiment+1 << "/" << first_experiment+no_experiments << "\t";
-			clog << "saving the population report...";
-			save_agent_report(current_experiment);
-			clog << "\t\t\tok" << endl;
-		}
+	if (flag_save_agent_report) 
+	{
+		//clog << "\t" << current_experiment+1 << "/" << first_experiment+no_experiments << "\t";
+		clog << "\t" << current_experiment+1 << "/" << 1 << "\t";
+		clog << "saving the population report...";
+		save_agent_report(current_experiment);
+		clog << "\t\t\tok" << endl;
+	}
 
-		if (flag_save_agent_state) 
-		{
-			clog << "\t" << current_experiment+1 << "/" << first_experiment+no_experiments << "\t";
-			clog << "saving the population state...";
-			save_agent_state(current_experiment);
-			clog << "\t\t\tok" << endl;
-		}
+	if (flag_save_agent_state) 
+	{
+		//clog << "\t" << current_experiment+1 << "/" << first_experiment+no_experiments << "\t";
+		clog << "\t" << current_experiment+1 << "/" << 1 << "\t";
+		clog << "saving the population state...";
+		save_agent_state(current_experiment);
+		clog << "\t\t\tok" << endl;
+	}
 /*
 		if (flag_save_avf) 
 		{
@@ -575,7 +589,7 @@ experiment_mgr::perform_experiments()
 			clog << "\t\t\tok" << endl;
 		}
  */
-	}
+	//}
 	if (flag_trace_time)
 	{
 		//! init the file for statistics
@@ -597,21 +611,22 @@ experiment_mgr::perform_experiments()
 		file_report << endl;
 		file_report << " EXP.";
 		file_report << "           ELAPSED IN EXP.";
-	        file_report << "           AVG FOR PROB." << endl;
+	    file_report << "           AVG FOR PROB." << endl;
 
-		for(unsigned long exp=first_experiment; exp < (first_experiment+no_experiments); exp++)
-		{
-			file_report << setw(5) << exp << "\t";
+		//for(unsigned long exp=first_experiment; exp < (first_experiment+no_experiments); exp++)
+		//{
+		file_report << setw(5) << 0 << "\t";
 
-			file_report << setw(20) << experiment_time[exp-first_experiment] << "sec\t";
-			file_report << setw(20) << problem_time[exp-first_experiment] << "sec\t"; 
-			file_report << endl;
-		}
+		file_report << setw(20) << experiment_time[0] << "sec\t";
+		file_report << setw(20) << problem_time[0] << "sec\t"; 
+		file_report << endl;
+		//}
 		file_report.close();
 	
 
 	}
 };
+
 
 void	
 experiment_mgr::print_save_options(ostream& output) 

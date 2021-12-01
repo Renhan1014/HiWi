@@ -276,6 +276,7 @@ xcs_classifier_system::xcs_classifier_system(xcs_config_mgr2& xcs_config)
 
 	//! set gradient descent
 	xcs_utility::set_flag(string(str_use_gd), flag_use_gradient_descent);
+        
 }
 
 void	
@@ -466,6 +467,7 @@ xcs_classifier_system::insert_classifier(t_classifier& new_cl)
 	population_size++;
 }
 
+/*
 void
 xcs_classifier_system::insert_classifier1(t_classifier& new_cl)
 {
@@ -505,6 +507,7 @@ xcs_classifier_system::insert_classifier1(t_classifier& new_cl)
 	}
 	population_size++;
 }
+*/
 
 //! build [M]
 unsigned long	
@@ -653,7 +656,7 @@ xcs_classifier_system::build_prediction_array()
 
 	available_actions.clear();
 	for(pr=prediction_array.begin(); pr!=prediction_array.end(); pr++ )
-	{
+	{   
 		if (pr->n!=0)
 		{
 			available_actions.push_back((pr - prediction_array.begin()));
@@ -838,6 +841,7 @@ xcs_classifier_system::subsume(const t_classifier &first, const t_classifier &se
 	return result;
 }
 
+/*
 bool
 xcs_classifier_system::subsume1(const t_classifier& first, const t_classifier& second)
 {
@@ -850,6 +854,7 @@ xcs_classifier_system::subsume1(const t_classifier& first, const t_classifier& s
 
 	return result;
 }
+*/
 
 bool
 xcs_classifier_system::need_ga(t_classifier_set &action_set, const bool flag_explore)
@@ -1029,6 +1034,7 @@ xcs_classifier_system::genetic_algorithm(t_classifier_set &action_set, const t_s
 	}
 }
 
+/*
 void
 xcs_classifier_system::genetic_algorithm1(t_classifier_set& action_set, const t_state& detectors, const bool flag_condensation)
 {
@@ -1187,7 +1193,7 @@ xcs_classifier_system::genetic_algorithm1(t_classifier_set& action_set, const t_
 		delete_classifier();
 	}
 }
-
+*/
 
 void	
 xcs_classifier_system::step(const bool exploration_mode, const bool condensationMode)
@@ -1308,14 +1314,167 @@ xcs_classifier_system::step(const bool exploration_mode, const bool condensation
 	//! apply the genetic algorithm to [A] if needed
 	if (flag_discovery_component && need_ga(action_set, exploration_mode))
 	{
-        xcs_classifier_system *xcs = getXCS_sys(); 
-		rule_generator rule_generator(xcs);
+        //xcs_classifier_system *xcs = getXCS_sys(); 
+	//	rule_generator rule_generator(xcs);
         //cout << "total steps is "<< total_steps<<endl;
         //cout << "this address is " << this <<endl;
-        rule_generator.genetic_algorithm(action_set, previous_input, condensationMode);
+        //rule_generator.genetic_algorithm(action_set, previous_input, condensationMode);
 		//rule_generator.run_ge_algo(action_set, previous_input, condensationMode);
 
-		//genetic_algorithm(action_set, previous_input, condensationMode);
+		genetic_algorithm(action_set, previous_input, condensationMode);
+		stats.no_ga++;
+	}
+	
+	//!	[A]-1 <= [A]
+	//!	r-1 <= r
+	previous_action_set = action_set;
+	action_set.clear();
+	previous_reward = Environment->reward();
+}
+
+void	
+xcs_classifier_system::step_part_1(const bool exploration_mode, const bool condensationMode){
+	t_action	action;					//! selected action
+	unsigned long	match_set_size;		//! number of microclassifiers in [M]
+	//unsigned long	action_set_size;	//! number of microclassifiers in [A]
+	
+        //cout << "in step1." << endl;
+	//! reads the current input
+	
+	//current_input = Environment->state(); 
+	
+	current_input = Environment->inputs; 
+	
+	//! update the number of learning steps performed so far
+	if (exploration_mode)
+	{
+		total_steps++;
+	}
+
+	/*! 
+	 * check if [M] needs covering,
+	 * if it does, it apply the selected covering strategy, i.e., standard as defined in Wilson 1995,
+	 * or action_based as defined in Butz and Wilson 2001
+	 */
+
+	do {
+		match_set_size = match(current_input);
+	}
+   	while (perform_covering(match_set, current_input));
+	//! build the prediction array P(.)
+	build_prediction_array();
+
+#ifdef __DEBUG__
+	cout << "BUILT THE PREDICTION ARRAY" << endl;
+	print_prediction_array(cout);
+	cout << endl;
+#endif
+	
+	//! select the action to be performed
+	if (exploration_mode)
+		select_action(action_selection_strategy, action);
+	else 
+		select_action(ACTSEL_DETERMINISTIC, action);
+
+	//! build [A]
+	build_action_set(action);
+
+#ifdef __DEBUG__
+	cout << "ACTION " << action << endl;
+#endif
+	//! store the current input before performing the selected action
+	/*!
+	 * used by the genetic algorithm
+	 */
+	//previous_input = Environment->state();
+	previous_input = Environment->inputs;
+
+	//Environment->perform(action);
+	
+	Environment->get_action_from_xcs(action);
+
+}
+
+void	
+xcs_classifier_system::step_part_2(const bool exploration_mode, const bool condensationMode){
+	t_action	action;					//! selected action
+	// the part for action is useless, only for debug
+	unsigned long selected_action = Environment ->selected_action;
+	action.set_value(selected_action);
+	//unsigned long	action_set_size;	//! number of microclassifiers in [A]
+	double		P;						//! value for prediction update, computed as r + gamma * max P(.) 
+	double		max_prediction;
+
+
+	//! if the environment is single step, the system error is collected
+	if (Environment->single_step())
+	{
+		double payoff = prediction_array[action.value()].payoff;
+		system_error = fabs(payoff-Environment->reward());
+	}
+
+#ifdef __DEBUG__
+	cout << "ACTION " << action << "\t";
+	cout << "REWARD " << Environment->reward() << endl;
+
+	if (flag_update_test)
+		cerr << "Update During Test" << endl;
+	else 
+		cerr << "No Update During Test" << endl;
+#endif
+
+	total_reward = total_reward + Environment->reward();
+    cout << "in xcs, total reward: "<< total_reward<<endl;
+	//! reinforcement component
+	
+	//! if [A]-1 is not empty it computes P
+	if ((exploration_mode || flag_update_test) && previous_action_set.size())
+	{
+
+#ifdef __DEBUG__
+		cerr << "Fa l'update" << endl;
+#endif
+
+		vector<t_system_prediction>::iterator	pr = prediction_array.begin();
+		max_prediction = pr->payoff;
+
+		for(pr = prediction_array.begin(); pr!=prediction_array.end(); pr++)
+		{
+			if (max_prediction<pr->payoff)
+			{
+				max_prediction = pr->payoff;
+			}
+		}
+
+		P = previous_reward + discount_factor * max_prediction;
+
+		//! use P to update the classifiers parameters
+		update_set(P, previous_action_set);
+	}
+
+	if (Environment->stop())
+	{
+		P = Environment->reward();
+		if (exploration_mode || flag_update_test)
+		{
+#ifdef __DEBUG__
+			cerr << "Fa l'update" << endl;
+#endif
+			update_set(P, action_set);
+		}
+	}
+
+	//! apply the genetic algorithm to [A] if needed
+	if (flag_discovery_component && need_ga(action_set, exploration_mode))
+	{
+        //xcs_classifier_system *xcs = getXCS_sys(); 
+		//rule_generator rule_generator(xcs);
+        //cout << "total steps is "<< total_steps<<endl;
+        //cout << "this address is " << this <<endl;
+        //rule_generator.genetic_algorithm(action_set, previous_input, condensationMode);
+		//rule_generator.run_ge_algo(action_set, previous_input, condensationMode);
+
+		genetic_algorithm(action_set, previous_input, condensationMode);
 		stats.no_ga++;
 	}
 	
@@ -1498,7 +1657,6 @@ xcs_classifier_system::perform_nma_covering(t_classifier_set &match_set, const t
 				
 				classifier.cover(detectors);
 				classifier.action = pr->action;
-
 				init_classifier(classifier, flag_cover_average_init);
 				
 				insert_classifier(classifier);
@@ -1559,6 +1717,7 @@ xcs_classifier_system::init_classifier(t_classifier& classifier, bool average)
 	};
 }
 
+/*
 void
 xcs_classifier_system::init_classifier1(t_classifier& classifier, bool average)
 {
@@ -1604,6 +1763,7 @@ xcs_classifier_system::init_classifier1(t_classifier& classifier, bool average)
 		assert(classifier.fitness >= 0);
 	};
 }
+*/
 
 //! build [A] from [M] and an action "act"
 /*!
@@ -1794,7 +1954,7 @@ xcs_classifier_system::select_offspring(t_classifier_set &action_set, t_set_iter
 	assert(sel<select.size());
 }
 
-
+/*
 void
 xcs_classifier_system::select_offspring1(t_classifier_set& action_set, t_set_iterator& clp1, t_set_iterator& clp2)
 {
@@ -1829,6 +1989,7 @@ xcs_classifier_system::select_offspring1(t_classifier_set& action_set, t_set_ite
 	clp2 = action_set.begin() + sel;	// to be changed if list containers are used
 	assert(sel < select.size());
 }
+*/
 
 void	
 xcs_classifier_system::set_covering_strategy(const string strategy, double threshold)
@@ -1839,7 +2000,6 @@ xcs_classifier_system::set_covering_strategy(const string strategy, double thres
 		fraction_for_covering = threshold;
 	} else if (strategy=="action_based") {
 		t_action	action;
-
 		covering_strategy = COVERING_ACTION_BASED;
 
 		//! the special value 0 for tetha_nma specifies that all the actions must be covered
@@ -2124,6 +2284,7 @@ xcs_classifier_system::select_offspring_ts(t_classifier_set& set, t_set_iterator
 
 }
 
+/*
 void
 xcs_classifier_system::select_offspring_ts1(t_classifier_set& set, t_set_iterator& clp)
 {
@@ -2155,6 +2316,7 @@ xcs_classifier_system::select_offspring_ts1(t_classifier_set& set, t_set_iterato
 
 }
 
+*/
 void
 xcs_classifier_system::init_population_load(string filename)
 {
@@ -2342,6 +2504,7 @@ xcs_classifier_system::delete_classifier()
 	}
 }
 
+/*
 void
 xcs_classifier_system::delete_classifier1()
 {
@@ -2404,6 +2567,7 @@ xcs_classifier_system::delete_classifier1()
 		macro_size--;
 	}
 }
+*/
 
 double	
 xcs_classifier_system::specificity(const t_classifier_set &set) const

@@ -221,6 +221,8 @@ xcs_classifier::random()
 {
 	condition.random();
 	action.random();
+	//action.default_action();
+	// action should be default?
 	set_initial_values();
 }
 
@@ -228,7 +230,8 @@ void
 xcs_classifier::cover(const t_state& detectors)
 {
 	condition.cover(detectors);
-	action.random();
+	//action.random();
+	action.default_action();
 	set_initial_values();
 }
 

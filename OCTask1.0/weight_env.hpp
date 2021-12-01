@@ -1,11 +1,12 @@
-#ifndef __WEIGHTENV__
-#define __WEIGHTENV__
+#ifndef __WEIGHT_ENV__
+#define __WEIGHT_ENV__
 
 #include <cassert>
 #include "rl_definitions.hpp"
 #include "environment_base.hpp"
 #include "xcs_config_mgr2.hpp"
 #include <sstream>
+//#include "experiment.hpp"
 
 using namespace std;
 
@@ -24,7 +25,9 @@ public:
 
 	bool stop() const;
 
+    //void perform();
 	void perform(const t_action& action);
+	void get_action_from_xcs(const t_action& action);
 
 	void trace(ostream& output) const;
 
@@ -37,18 +40,18 @@ public:
 	void save_state(ostream& output) const;
 	void restore_state(istream& input);
 
-	virtual double reward() const { assert(current_reward == add_env::current_reward); return current_reward; };
+	virtual double reward() const { assert(current_reward == weight_env::current_reward); return current_reward; };
 
 	virtual t_state state() const { return inputs; };
-
+    t_state get_state();
 	bool allow_test() const { return true; };
 	virtual bool single_step() const { return false; };
 
 	void setInput(vector<double>& inp);
 	void weight_init();
 	bool finished() const;
-	void setRewardFromFile(double re);
-	void getWeight(vector<double>& weight);
+	void setRewardFromOut(double re);
+	void getWeightAndAction(vector<double>& weight, unsigned long& action);
 
 public:
 	static bool			init;
@@ -56,11 +59,17 @@ public:
 	//bool				first_problem;
 	double				current_reward;
 	//bool				solved;
-	vector<double>      init_weight;
+	//vector<double>      init_weight;
+	vector<vector <double> > weights;
 	vector<double>      final_weight;
 	vector<double>      input;
-	long  num;
+	unsigned long  input_dim;
+	unsigned long weight_dim;
+	double step;
+	unsigned long number_of_actions;
 	ostringstream	action_weight;
-	double reward_from_file;
+	//double reward_from_outside;
+	unsigned long selected_action;
+	//experiment exp;
 };
 #endif

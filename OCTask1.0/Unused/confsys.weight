@@ -28,7 +28,7 @@
       population size = 400
         learning rate = 0.2
       discount factor = 0.7
-    covering strategy = standard 0
+    covering strategy = action_based 0
   discovery component = on
              theta GA = 25
 crossover probability = 0.8
@@ -53,3 +53,21 @@ crossover probability = 0.8
 GA tournament selection = off
       tournament size = 0.4
 </classifier_system>
+
+<experiments>
+        first problem = 0
+        number of learning problems = 2000
+	number of condensation problems = 0
+        number of test problems = 0
+	test environment = off
+	save state every = 0
+        trace experiments = off
+        save population state = on
+        save population report = off
+        save experiment state = on
+	trace time = on
+	compact mode = off
+	save statistics every = 100
+        save learning problems = on
+	maximum number of steps = 67
+</experiments>

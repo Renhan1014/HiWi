@@ -177,3 +177,9 @@ integer_action::set_string_value(string str)
 {
 	action = atoi(str.c_str()) % actions();
 }
+
+void 
+integer_action::default_action(){
+	long default_action = 0;
+	set_value(default_action);
+}

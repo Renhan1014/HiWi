@@ -102,8 +102,8 @@ typedef integer_action t_action;
 //class   __ENVIRONMENT__;
 //typedef __ENVIRONMENT__ t_environment;
 
-class   add_env;
-typedef add_env t_environment;
+class   weight_env;
+typedef weight_env t_environment;
 
 //#include __DET_INCLUDE__
 //#include __ENV_INCLUDE__

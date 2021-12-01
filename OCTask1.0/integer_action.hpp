@@ -138,5 +138,9 @@ public:
 	//! assignment operator for a constant value
 	virtual integer_action& operator=(const integer_action& action) {set_string_value(action.string_value()); return *this;};
 
+	// get default action
+	void default_action();
+
+
 };
 #endif
