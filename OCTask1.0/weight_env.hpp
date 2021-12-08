@@ -43,7 +43,7 @@ public:
 	virtual double reward() const { assert(current_reward == weight_env::current_reward); return current_reward; };
 
 	virtual t_state state() const { return inputs; };
-    t_state get_state();
+    t_state get_state() {return inputs;};
 	bool allow_test() const { return true; };
 	virtual bool single_step() const { return false; };
 
@@ -52,8 +52,9 @@ public:
 	bool finished() const;
 	void setRewardFromOut(double re);
 	void getWeightAndAction(vector<double>& weight, unsigned long& action);
+	unsigned long getAction() {return selected_action; };
 
-public:
+private:
 	static bool			init;
 	t_state			inputs;
 	//bool				first_problem;

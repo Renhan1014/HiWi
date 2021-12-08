@@ -1343,7 +1343,7 @@ xcs_classifier_system::step_part_1(const bool exploration_mode, const bool conde
 	
 	//current_input = Environment->state(); 
 	
-	current_input = Environment->inputs; 
+	current_input = Environment->state(); 
 	
 	//! update the number of learning steps performed so far
 	if (exploration_mode)
@@ -1387,7 +1387,7 @@ xcs_classifier_system::step_part_1(const bool exploration_mode, const bool conde
 	 * used by the genetic algorithm
 	 */
 	//previous_input = Environment->state();
-	previous_input = Environment->inputs;
+	previous_input = Environment->state();
 
 	//Environment->perform(action);
 	
@@ -1399,7 +1399,8 @@ void
 xcs_classifier_system::step_part_2(const bool exploration_mode, const bool condensationMode){
 	t_action	action;					//! selected action
 	// the part for action is useless, only for debug
-	unsigned long selected_action = Environment ->selected_action;
+	//unsigned long selected_action = Environment ->selected_action;
+	unsigned long selected_action = Environment ->getAction();
 	action.set_value(selected_action);
 	//unsigned long	action_set_size;	//! number of microclassifiers in [A]
 	double		P;						//! value for prediction update, computed as r + gamma * max P(.) 

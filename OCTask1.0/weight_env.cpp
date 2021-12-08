@@ -30,7 +30,7 @@ weight_env::weight_env(xcs_config_mgr2& xcs_config) {
 	//exp.create_inputs(input);
 	//exp.create_target(input);
 	//exp.print();
-	inputs.set_dim(input_dim);
+	//inputs.set_dim(input_dim);
 	weight_env::init = true;
 	//cout<<"inputs is: "<<inputs<<endl;
 }
@@ -158,9 +158,12 @@ void weight_env::restore_state(istream& input) {
 
 void weight_env::setInput(vector<double>& inp) {
 	input = inp;
+	//inputs.set_dim(input_dim);
+	inputs.set_numeric_representation(input);
 	//cout<<"inputs is: "<<inputs<<endl;
-	for (int i = 0; i < input_dim; i++)
-		inputs.set_input(i, inp[i]);
+
+	//for (int i = 0; i < input_dim; i++)
+	//	inputs.set_input(i, inp[i]);
 	//cout <<"input: "<<inputs.string_value()<<endl;
 	//cout<<"inputs is: "<<inputs<<endl;
 	//cout<<"in envir, the input address: "<<&inputs<<endl;
@@ -220,7 +223,9 @@ void weight_env::getWeightAndAction(vector<double>& weight, unsigned long& actio
 }
 
 
+/*
 t_state weight_env::get_state(){
 	//cout<<"in get_state(),the input is: "<<inputs<<endl;
 	return this->inputs;
 }
+*/
